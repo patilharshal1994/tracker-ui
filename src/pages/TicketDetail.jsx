@@ -310,7 +310,7 @@ const TicketDetail = () => {
                 '& ul, & ol': { margin: '8px 0', paddingLeft: '24px' }
               }}
               dangerouslySetInnerHTML={{
-                __html: ticket.description || '<p style="color: #999;">No description provided</p>'
+                __html: ticket.description || '<p style="color: inherit; opacity: 0.7;">No description provided</p>'
               }}
             />
 
@@ -350,13 +350,17 @@ const TicketDetail = () => {
                   sx={{ 
                     mb: 2, 
                     p: 2.5, 
-                    bgcolor: 'grey.50', 
+                    bgcolor: (theme) => theme.palette.mode === 'dark' 
+                      ? 'rgba(255, 255, 255, 0.05)' 
+                      : 'rgba(0, 0, 0, 0.02)', 
                     borderRadius: 2,
                     border: '1px solid',
                     borderColor: 'divider',
                     transition: 'all 0.2s',
                     '&:hover': {
-                      bgcolor: 'grey.100',
+                      bgcolor: (theme) => theme.palette.mode === 'dark' 
+                        ? 'rgba(255, 255, 255, 0.08)' 
+                        : 'rgba(0, 0, 0, 0.04)',
                       boxShadow: 1
                     }
                   }}
@@ -410,7 +414,14 @@ const TicketDetail = () => {
                 </Box>
               ))
             ) : (
-              <Box sx={{ p: 3, textAlign: 'center', bgcolor: 'grey.50', borderRadius: 2 }}>
+              <Box sx={{ 
+                p: 3, 
+                textAlign: 'center', 
+                bgcolor: (theme) => theme.palette.mode === 'dark' 
+                  ? 'rgba(255, 255, 255, 0.05)' 
+                  : 'rgba(0, 0, 0, 0.02)', 
+                borderRadius: 2 
+              }}>
                 <Typography variant="body2" color="text.secondary">
                   No comments yet. Be the first to comment!
                 </Typography>

@@ -165,8 +165,10 @@ const Dashboard = () => {
           height: '100%',
           background: gradient
             ? `linear-gradient(135deg, ${theme.palette[color]?.main || theme.palette.primary.main} 0%, ${theme.palette[color]?.dark || theme.palette.primary.dark} 100%)`
-            : 'white',
-          color: gradient ? 'white' : 'inherit',
+            : theme.palette.mode === 'dark' 
+              ? theme.palette.background.paper 
+              : theme.palette.background.paper,
+          color: gradient ? 'white' : theme.palette.text.primary,
           boxShadow: 3,
           transition: 'transform 0.2s, box-shadow 0.2s',
           '&:hover': {
@@ -271,7 +273,9 @@ const Dashboard = () => {
                         return {
                           height: 8,
                           borderRadius: 4,
-                          bgcolor: 'grey.200',
+                          bgcolor: theme.palette.mode === 'dark' 
+                            ? 'rgba(255, 255, 255, 0.1)' 
+                            : 'rgba(0, 0, 0, 0.08)',
                           '& .MuiLinearProgress-bar': {
                             bgcolor: theme.palette[statusColor]?.main || theme.palette.primary.main
                           }
@@ -593,7 +597,7 @@ const Dashboard = () => {
         {/* Quick Actions (Admin only) */}
         {user.role === 'ADMIN' && (
           <Grid item xs={12}>
-            <Card sx={{ boxShadow: 3, bgcolor: 'primary.50' }}>
+            <Card sx={{ boxShadow: 3, bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(25, 118, 210, 0.1)' : 'rgba(25, 118, 210, 0.05)' }}>
               <CardContent>
                 <Typography variant="h6" fontWeight="bold" gutterBottom>
                   Quick Actions

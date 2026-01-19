@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   AppBar,
@@ -26,14 +25,18 @@ import {
   Logout,
   Menu as MenuIcon,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Brightness4,
+  Brightness7,
+  Palette
 } from '@mui/icons-material';
 import toast from 'react-hot-toast';
 import { Chip, IconButton, Tooltip } from '@mui/material';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import { mockUser, USE_MOCK_DATA } from '../data/mockData';
 import NotificationCenter from './NotificationCenter';
-import React, { useEffect, useRef } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 const drawerWidth = 240;
 const collapsedDrawerWidth = 64;
 
@@ -45,22 +48,24 @@ const Layout = ({ children }) => {
   const logout = auth?.logout || (() => {});
   const [mobileOpen, setMobileOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState(null);
+  const [themeMenuAnchor, setThemeMenuAnchor] = useState(null);
   const [collapsed, setCollapsed] = useState(false);
   const hasWelcomed = useRef(false);
+  const { mode, colorScheme, toggleMode, setColorScheme, colorSchemes } = useTheme();
 
   // Show welcome message on first load
   useEffect(() => {
     if (user && !hasWelcomed.current && location.pathname !== '/login') {
       hasWelcomed.current = true;
-      setTimeout(() => {
-        toast.success(`Welcome, ${user.name}! 👋`, {
-          duration: 4000,
-          style: {
-            fontSize: '16px',
-            padding: '20px',
-          },
-        });
-      }, 500);
+      // setTimeout(() => {
+      //   toast.success(`Welcome, ${user.name}! 👋`, {
+      //     duration: 4000,
+      //     style: {
+      //       fontSize: '16px',
+      //       padding: '20px',
+      //     },
+      //   });
+      // }, 500);
     }
   }, [user, location.pathname]);
 
@@ -87,6 +92,21 @@ const Layout = ({ children }) => {
 
   const handleMenuClose = () => {
     setAnchorEl(null);
+  };
+
+  const handleThemeMenuClick = (event) => {
+    setThemeMenuAnchor(event.currentTarget);
+  };
+
+  const handleThemeMenuClose = () => {
+    setThemeMenuAnchor(null);
+  };
+
+  const handleColorSchemeChange = (scheme) => {
+    setColorScheme(scheme);
+    handleThemeMenuClose();
+    const displayName = scheme === 'tiktok' ? 'TikTok' : scheme === 'salla' ? 'Salla' : scheme.charAt(0).toUpperCase() + scheme.slice(1);
+    toast.success(`Theme changed to ${displayName}! 🎨`);
   };
 
   const handleLogout = () => {
@@ -198,6 +218,65 @@ const Layout = ({ children }) => {
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             {user && <NotificationCenter />}
+            
+            {/* Theme Toggle */}
+            <Tooltip title={mode === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}>
+              <IconButton
+                onClick={toggleMode}
+                sx={{ 
+                  color: 'inherit',
+                  '&:hover': { bgcolor: 'action.hover' }
+                }}
+              >
+                {mode === 'light' ? <Brightness4 /> : <Brightness7 />}
+              </IconButton>
+            </Tooltip>
+
+            {/* Color Scheme Menu */}
+            <Tooltip title="Change Color Scheme">
+              <IconButton
+                onClick={handleThemeMenuClick}
+                sx={{ 
+                  color: 'inherit',
+                  '&:hover': { bgcolor: 'action.hover' }
+                }}
+              >
+                <Palette />
+              </IconButton>
+            </Tooltip>
+            <Menu
+              anchorEl={themeMenuAnchor}
+              open={Boolean(themeMenuAnchor)}
+              onClose={handleThemeMenuClose}
+              PaperProps={{
+                sx: { minWidth: 180 }
+              }}
+            >
+              <MenuItem disabled>
+                <Typography variant="caption" color="text.secondary">Color Schemes</Typography>
+              </MenuItem>
+              <Divider />
+              {colorSchemes.map((scheme) => {
+                const displayName = scheme === 'tiktok' ? 'TikTok' : scheme === 'salla' ? 'Salla' : scheme.charAt(0).toUpperCase() + scheme.slice(1);
+                return (
+                  <MenuItem
+                    key={scheme}
+                    onClick={() => handleColorSchemeChange(scheme)}
+                    selected={colorScheme === scheme}
+                  >
+                    <ListItemText>
+                      {displayName}
+                    </ListItemText>
+                    {colorScheme === scheme && (
+                      <ListItemIcon>
+                        <Chip size="small" label="Active" color="primary" />
+                      </ListItemIcon>
+                    )}
+                  </MenuItem>
+                );
+              })}
+            </Menu>
+
             <Box sx={{ textAlign: 'right', mr: 1 }}>
               <Typography variant="body2" fontWeight="medium">
                 {user?.name}

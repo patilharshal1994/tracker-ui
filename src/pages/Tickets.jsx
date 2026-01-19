@@ -677,7 +677,11 @@ const Tickets = () => {
       <TableContainer component={Paper} sx={{ boxShadow: 2 }}>
         <Table>
           <TableHead>
-            <TableRow sx={{ bgcolor: 'grey.50' }}>
+            <TableRow sx={{ 
+              bgcolor: (theme) => theme.palette.mode === 'dark' 
+                ? 'rgba(255, 255, 255, 0.05)' 
+                : 'rgba(0, 0, 0, 0.02)' 
+            }}>
               <TableCell padding="checkbox">
                 <Checkbox
                   checked={paginatedTickets.length > 0 && paginatedTickets.every(t => selectedTickets.includes(t.id))}
