@@ -92,7 +92,9 @@ const Projects = () => {
         // Backend returns: { data: [...], pagination: {...} }
         // Backend automatically filters based on user role
         const response = await api.get('/teams');
-        setTeams(response.data?.data || []);
+        const teamsData = response.data?.data || response.data || [];
+        console.log('Teams for Projects API Response:', response.data); // Debug log
+        setTeams(Array.isArray(teamsData) ? teamsData : []);
       }
     } catch (err) {
       console.error('Failed to load teams:', err);

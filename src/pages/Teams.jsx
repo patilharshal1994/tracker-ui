@@ -70,7 +70,9 @@ const Teams = () => {
       } else {
         // Backend returns: { data: [...], pagination: {...} }
         const response = await api.get('/teams');
-        setTeams(response.data?.data || []);
+        const teamsData = response.data?.data || response.data || [];
+        console.log('Teams API Response:', response.data); // Debug log
+        setTeams(Array.isArray(teamsData) ? teamsData : []);
       }
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to load teams');
@@ -300,12 +302,15 @@ const Teams = () => {
               </TableRow>
             ) : (
               paginatedTeams.map((team) => {
-                const teamOrg = mockOrganizations.find(o => o.id === team.organization_id);
+                // Use organization_name from API response if available, otherwise find from organizations list
+                const teamOrg = team.organization_name 
+                  ? { name: team.organization_name }
+                  : organizations.find(o => o.id === team.organization_id);
                 return (
                   <TableRow key={team.id} hover>
                     <TableCell>{team.name}</TableCell>
                     {user?.role === ROLES.SUPER_ADMIN && (
-                      <TableCell>{teamOrg ? teamOrg.name : '-'}</TableCell>
+                      <TableCell>{teamOrg ? teamOrg.name : (team.organization_name || '-')}</TableCell>
                     )}
                     <TableCell>
                       {new Date(team.created_at).toLocaleDateString()}
