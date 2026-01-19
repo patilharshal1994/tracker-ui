@@ -27,6 +27,7 @@ import {
   TableFooter
 } from '@mui/material';
 import { Add, Edit, Delete } from '@mui/icons-material';
+import toast from 'react-hot-toast';
 import api from '../config/api';
 import { useAuth } from '../context/AuthContext';
 import { mockApi, mockUsers, mockTeams, USE_MOCK_DATA } from '../data/mockData';
@@ -91,22 +92,28 @@ const Users = () => {
   const handleCreate = async () => {
     try {
       await api.post('/users', formData);
+      toast.success(`User "${formData.name}" created successfully! 👤`);
       setOpenDialog(false);
       resetForm();
       fetchUsers();
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to create user');
+      const errorMsg = err.response?.data?.error || 'Failed to create user';
+      setError(errorMsg);
+      toast.error(errorMsg);
     }
   };
 
   const handleUpdate = async () => {
     try {
       await api.put(`/users/${editingUser.id}`, formData);
+      toast.success(`User "${formData.name}" updated successfully! ✏️`);
       setOpenDialog(false);
       resetForm();
       fetchUsers();
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to update user');
+      const errorMsg = err.response?.data?.error || 'Failed to update user';
+      setError(errorMsg);
+      toast.error(errorMsg);
     }
   };
 
@@ -115,9 +122,12 @@ const Users = () => {
 
     try {
       await api.delete(`/users/${userId}`);
+      toast.success('User deleted successfully! 🗑️');
       fetchUsers();
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to delete user');
+      const errorMsg = err.response?.data?.error || 'Failed to delete user';
+      setError(errorMsg);
+      toast.error(errorMsg);
     }
   };
 

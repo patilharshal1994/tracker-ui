@@ -18,15 +18,18 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Avatar,
-  Grid
+    Avatar,
+    Grid,
+    IconButton,
+    Tooltip
 } from '@mui/material';
 import { Skeleton } from '@mui/material';
-import { ArrowBack, Edit, AttachFile } from '@mui/icons-material';
+import { ArrowBack, Edit, AttachFile, ContentCopy, Share } from '@mui/icons-material';
+import toast from 'react-hot-toast';
 import api from '../config/api';
 import { useAuth } from '../context/AuthContext';
 import { mockApi, USE_MOCK_DATA } from '../data/mockData';
-import { decodeId } from '../utils/idEncoder';
+import { decodeId, encodeId } from '../utils/idEncoder';
 import RichTextEditor from '../components/RichTextEditor';
 import TicketActivityLog from '../components/TicketActivityLog';
 import FileAttachment from '../components/FileAttachment';
@@ -115,11 +118,14 @@ const TicketDetail = () => {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
 
+      toast.success('Comment added successfully! 💬');
       setCommentText('');
       setCommentFile(null);
       fetchTicket();
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to add comment');
+      const errorMsg = err.response?.data?.error || 'Failed to add comment';
+      setError(errorMsg);
+      toast.error(errorMsg);
     }
   };
 
@@ -129,10 +135,13 @@ const TicketDetail = () => {
         ...editData,
         assignee_id: editData.assignee_id || null
       });
+      toast.success('Ticket updated successfully! ✏️');
       setOpenEditDialog(false);
       fetchTicket();
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to update ticket');
+      const errorMsg = err.response?.data?.error || 'Failed to update ticket';
+      setError(errorMsg);
+      toast.error(errorMsg);
     }
   };
 
@@ -204,16 +213,43 @@ const TicketDetail = () => {
                   </Typography>
                 </Box>
               </Box>
-              {canEdit && (
-                <Button
-                  startIcon={<Edit />}
-                  onClick={() => setOpenEditDialog(true)}
-                  variant="outlined"
-                  sx={{ borderRadius: 2 }}
-                >
-                  Edit
-                </Button>
-              )}
+              <Box display="flex" gap={1}>
+                <Tooltip title="Copy ticket link">
+                  <IconButton
+                    onClick={() => {
+                      const ticketUrl = `${window.location.origin}/tickets/${encodeId(ticket.id)}`;
+                      navigator.clipboard.writeText(ticketUrl).then(() => {
+                        toast.success('Ticket link copied to clipboard! 🔗', {
+                          duration: 3000,
+                        });
+                      }).catch(() => {
+                        toast.error('Failed to copy link');
+                      });
+                    }}
+                    sx={{ 
+                      border: 1, 
+                      borderColor: 'divider',
+                      '&:hover': { 
+                        bgcolor: 'primary.light',
+                        borderColor: 'primary.main',
+                        color: 'primary.main'
+                      }
+                    }}
+                  >
+                    <ContentCopy fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+                {canEdit && (
+                  <Button
+                    startIcon={<Edit />}
+                    onClick={() => setOpenEditDialog(true)}
+                    variant="outlined"
+                    sx={{ borderRadius: 2 }}
+                  >
+                    Edit
+                  </Button>
+                )}
+              </Box>
             </Box>
 
             {ticket.is_breached && (
@@ -501,14 +537,16 @@ const TicketDetail = () => {
               <TicketWatchers
                 ticketId={ticketId}
                 watchers={watchers}
-                onAddWatcher={(userId) => {
-                  if (!watchers.includes(userId)) {
-                    setWatchers([...watchers, userId]);
-                  }
-                }}
-                onRemoveWatcher={(userId) => {
-                  setWatchers(watchers.filter(id => id !== userId));
-                }}
+              onAddWatcher={(userId) => {
+                if (!watchers.includes(userId)) {
+                  setWatchers([...watchers, userId]);
+                  toast.success('Watcher added successfully! 👀');
+                }
+              }}
+              onRemoveWatcher={(userId) => {
+                setWatchers(watchers.filter(id => id !== userId));
+                toast.success('Watcher removed successfully! 🗑️');
+              }}
               />
             </Paper>
 
@@ -517,18 +555,20 @@ const TicketDetail = () => {
               <TimeTracker
                 ticketId={ticketId}
                 timeLogs={timeLogs}
-                onLogTime={(log) => {
-                  const newLog = {
-                    id: Date.now(),
-                    ...log,
-                    user_id: user.id,
-                    user_name: user.name
-                  };
-                  setTimeLogs([...timeLogs, newLog]);
-                }}
-                onDeleteLog={(logId) => {
-                  setTimeLogs(timeLogs.filter(log => log.id !== logId));
-                }}
+              onLogTime={(log) => {
+                const newLog = {
+                  id: Date.now(),
+                  ...log,
+                  user_id: user.id,
+                  user_name: user.name
+                };
+                setTimeLogs([...timeLogs, newLog]);
+                toast.success(`${log.hours} hours logged successfully! ⏱️`);
+              }}
+              onDeleteLog={(logId) => {
+                setTimeLogs(timeLogs.filter(log => log.id !== logId));
+                toast.success('Time log deleted successfully! 🗑️');
+              }}
               />
             </Paper>
           </Box>
@@ -588,9 +628,11 @@ const TicketDetail = () => {
                   related_ticket: { id: rel.related_ticket_id }
                 };
                 setRelationships([...relationships, newRel]);
+                toast.success('Ticket relationship added successfully! 🔗');
               }}
               onRemove={(relId) => {
                 setRelationships(relationships.filter(r => r.id !== relId));
+                toast.success('Ticket relationship removed successfully! 🗑️');
               }}
             />
           </Paper>

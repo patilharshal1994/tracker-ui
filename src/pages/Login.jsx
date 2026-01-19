@@ -10,6 +10,7 @@ import {
   Alert,
   CircularProgress
 } from '@mui/material';
+import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 import React from 'react'
 
@@ -30,9 +31,17 @@ const Login = () => {
     setLoading(false);
 
     if (result.success) {
+      toast.success(`Welcome back, ${result.user?.name || 'User'}! 🎉`, {
+        duration: 4000,
+        style: {
+          fontSize: '16px',
+          padding: '20px',
+        },
+      });
       navigate('/dashboard');
     } else {
       setError(result.error);
+      toast.error(result.error || 'Login failed');
     }
   };
 

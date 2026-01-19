@@ -29,6 +29,7 @@ import {
   MenuItem
 } from '@mui/material';
 import { Add, Visibility } from '@mui/icons-material';
+import toast from 'react-hot-toast';
 import api from '../config/api';
 import { useAuth } from '../context/AuthContext';
 import { mockApi, mockProjects, mockTeams, USE_MOCK_DATA } from '../data/mockData';
@@ -91,11 +92,14 @@ const Projects = () => {
         ...formData,
         team_id: formData.team_id || null
       });
+      toast.success(`Project "${formData.name}" created successfully! 📁`);
       setOpenDialog(false);
       setFormData({ name: '', description: '', team_id: '' });
       fetchProjects();
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to create project');
+      const errorMsg = err.response?.data?.error || 'Failed to create project';
+      setError(errorMsg);
+      toast.error(errorMsg);
     }
   };
 

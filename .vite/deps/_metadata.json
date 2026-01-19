@@ -2,105 +2,111 @@
   "hash": "381120c9",
   "configHash": "eb14bddd",
   "lockfileHash": "1738dd96",
-  "browserHash": "d553e4de",
+  "browserHash": "24e214e5",
   "optimized": {
     "react": {
       "src": "../../node_modules/react/index.js",
       "file": "react.js",
-      "fileHash": "3cd261b2",
+      "fileHash": "e6876768",
       "needsInterop": true
     },
     "react-dom/client": {
       "src": "../../node_modules/react-dom/client.js",
       "file": "react-dom_client.js",
-      "fileHash": "7bcbbf4a",
+      "fileHash": "6651d120",
       "needsInterop": true
     },
     "react-router-dom": {
       "src": "../../node_modules/react-router-dom/dist/index.js",
       "file": "react-router-dom.js",
-      "fileHash": "62e619e5",
+      "fileHash": "bde54bcf",
       "needsInterop": false
     },
     "@mui/material/styles": {
       "src": "../../node_modules/@mui/material/styles/index.js",
       "file": "@mui_material_styles.js",
-      "fileHash": "0488aa20",
+      "fileHash": "b06e776a",
       "needsInterop": false
     },
     "@mui/material/CssBaseline": {
       "src": "../../node_modules/@mui/material/CssBaseline/index.js",
       "file": "@mui_material_CssBaseline.js",
-      "fileHash": "0a5ba273",
+      "fileHash": "e8e74cc2",
       "needsInterop": false
     },
     "@mui/material": {
       "src": "../../node_modules/@mui/material/index.js",
       "file": "@mui_material.js",
-      "fileHash": "b5aae6c2",
+      "fileHash": "ffe42665",
       "needsInterop": false
     },
     "@mui/icons-material": {
       "src": "../../node_modules/@mui/icons-material/esm/index.js",
       "file": "@mui_icons-material.js",
-      "fileHash": "7c723d55",
+      "fileHash": "022a67bb",
       "needsInterop": false
     },
     "axios": {
       "src": "../../node_modules/axios/index.js",
       "file": "axios.js",
-      "fileHash": "d703a216",
+      "fileHash": "ee37e2f2",
       "needsInterop": false
     },
     "@ckeditor/ckeditor5-react": {
       "src": "../../node_modules/@ckeditor/ckeditor5-react/dist/index.js",
       "file": "@ckeditor_ckeditor5-react.js",
-      "fileHash": "d5045f7a",
+      "fileHash": "f2379693",
       "needsInterop": false
     },
     "@ckeditor/ckeditor5-build-classic": {
       "src": "../../node_modules/@ckeditor/ckeditor5-build-classic/build/ckeditor.js",
       "file": "@ckeditor_ckeditor5-build-classic.js",
-      "fileHash": "0a70d968",
+      "fileHash": "ccdda0bd",
       "needsInterop": true
     },
     "date-fns": {
       "src": "../../node_modules/date-fns/index.mjs",
       "file": "date-fns.js",
-      "fileHash": "bf0be2c8",
+      "fileHash": "d10384cc",
       "needsInterop": false
     },
     "xlsx": {
       "src": "../../node_modules/xlsx/xlsx.mjs",
       "file": "xlsx.js",
-      "fileHash": "66822f64",
+      "fileHash": "d4e81086",
+      "needsInterop": false
+    },
+    "react-hot-toast": {
+      "src": "../../node_modules/react-hot-toast/dist/index.mjs",
+      "file": "react-hot-toast.js",
+      "fileHash": "9c865385",
       "needsInterop": false
     }
   },
   "chunks": {
-    "chunk-JPWDC7PK": {
-      "file": "chunk-JPWDC7PK.js"
+    "chunk-CI6ZHPHB": {
+      "file": "chunk-CI6ZHPHB.js"
     },
-    "chunk-4QE75AGT": {
-      "file": "chunk-4QE75AGT.js"
+    "chunk-Z7YMTU36": {
+      "file": "chunk-Z7YMTU36.js"
     },
-    "chunk-T7UMZKUN": {
-      "file": "chunk-T7UMZKUN.js"
+    "chunk-HBQO46JJ": {
+      "file": "chunk-HBQO46JJ.js"
     },
     "chunk-DPJPKJB6": {
       "file": "chunk-DPJPKJB6.js"
     },
-    "chunk-JUXPTQFM": {
-      "file": "chunk-JUXPTQFM.js"
+    "chunk-LDESBTB6": {
+      "file": "chunk-LDESBTB6.js"
     },
-    "chunk-XLD3JQCX": {
-      "file": "chunk-XLD3JQCX.js"
+    "chunk-MXZEMIOR": {
+      "file": "chunk-MXZEMIOR.js"
     },
-    "chunk-KSN2TXL3": {
-      "file": "chunk-KSN2TXL3.js"
+    "chunk-WWEBU55D": {
+      "file": "chunk-WWEBU55D.js"
     },
-    "chunk-72IYKKOJ": {
-      "file": "chunk-72IYKKOJ.js"
+    "chunk-7RFLSAJ5": {
+      "file": "chunk-7RFLSAJ5.js"
     },
     "chunk-27Z6VNDM": {
       "file": "chunk-27Z6VNDM.js"

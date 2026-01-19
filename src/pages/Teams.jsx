@@ -27,6 +27,7 @@ import {
   MenuItem
 } from '@mui/material';
 import { Add, Edit, Delete, Visibility } from '@mui/icons-material';
+import toast from 'react-hot-toast';
 import api from '../config/api';
 import { useAuth } from '../context/AuthContext';
 import { mockApi, mockTeams, USE_MOCK_DATA } from '../data/mockData';
@@ -86,18 +87,22 @@ const Teams = () => {
   const handleCreate = async () => {
     try {
       await api.post('/teams', formData);
+      toast.success(`Team "${formData.name}" created successfully! 👥`);
       setOpenDialog(false);
       setFormData({ name: '' });
       setEditingTeam(null);
       fetchTeams();
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to create team');
+      const errorMsg = err.response?.data?.error || 'Failed to create team';
+      setError(errorMsg);
+      toast.error(errorMsg);
     }
   };
 
   const handleUpdate = async () => {
     try {
       await api.put(`/teams/${editingTeam.id}`, formData);
+      toast.success(`Team "${formData.name}" updated successfully! ✏️`);
       setOpenDialog(false);
       setFormData({ name: '' });
       setEditingTeam(null);
@@ -106,7 +111,9 @@ const Teams = () => {
         fetchTeamDetails(editingTeam.id);
       }
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to update team');
+      const errorMsg = err.response?.data?.error || 'Failed to update team';
+      setError(errorMsg);
+      toast.error(errorMsg);
     }
   };
 
@@ -115,13 +122,16 @@ const Teams = () => {
 
     try {
       await api.delete(`/teams/${teamId}`);
+      toast.success('Team deleted successfully! 🗑️');
       fetchTeams();
       if (selectedTeam === teamId) {
         setSelectedTeam(null);
         setTeamDetails(null);
       }
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to delete team');
+      const errorMsg = err.response?.data?.error || 'Failed to delete team';
+      setError(errorMsg);
+      toast.error(errorMsg);
     }
   };
 

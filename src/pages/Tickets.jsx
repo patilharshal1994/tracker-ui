@@ -28,9 +28,11 @@ import {
   Collapse,
   InputAdornment,
   Pagination,
-  TableFooter
-} from '@mui/material';
-import { Add, Visibility, FilterList, Search, Clear, ExpandMore, ExpandLess, Description, ViewList, ViewModule } from '@mui/icons-material';
+    TableFooter,
+    Tooltip
+  } from '@mui/material';
+import { Add, Visibility, FilterList, Search, Clear, ExpandMore, ExpandLess, Description, ViewList, ViewModule, ContentCopy } from '@mui/icons-material';
+import toast from 'react-hot-toast';
 import api from '../config/api';
 import { useAuth } from '../context/AuthContext';
 import { mockApi, mockProjects, mockUsers, mockTags, USE_MOCK_DATA } from '../data/mockData';
@@ -186,6 +188,7 @@ const Tickets = () => {
         ...formData,
         assignee_id: formData.assignee_id || null
       });
+      toast.success(`Ticket "${formData.title}" created successfully! 🎫`);
       setOpenDialog(false);
       setFormData({
         project_id: '',
@@ -193,11 +196,14 @@ const Tickets = () => {
         title: '',
         description: '',
         priority: 'MEDIUM',
-        assignee_id: ''
+        assignee_id: '',
+        tags: []
       });
       fetchTickets();
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to create ticket');
+      const errorMsg = err.response?.data?.error || 'Failed to create ticket';
+      setError(errorMsg);
+      toast.error(errorMsg);
     }
   };
 
@@ -647,6 +653,7 @@ const Tickets = () => {
           selectedIds={selectedTickets}
           onBulkUpdate={(updates) => {
             console.log('Bulk update:', updates, selectedTickets);
+            toast.success(`Updated ${selectedTickets.length} ticket(s) successfully! ✅`);
             // Mock update - in real app, call API
             setSelectedTickets([]);
             setSelectAll(false);
@@ -654,6 +661,7 @@ const Tickets = () => {
           }}
           onBulkDelete={() => {
             console.log('Bulk delete:', selectedTickets);
+            toast.success(`Deleted ${selectedTickets.length} ticket(s) successfully! 🗑️`);
             setSelectedTickets([]);
             setSelectAll(false);
             fetchTickets();
@@ -846,13 +854,42 @@ const Tickets = () => {
                       )}
                     </TableCell>
                     <TableCell>
-                      <IconButton
-                        size="small"
-                        onClick={() => navigate(`/tickets/${encodeId(ticket.id)}`)}
-                        sx={{ color: 'primary.main' }}
-                      >
-                        <Visibility />
-                      </IconButton>
+                      <Box display="flex" gap={0.5} alignItems="center">
+                        <Tooltip title="View ticket">
+                          <IconButton
+                            size="small"
+                            onClick={() => navigate(`/tickets/${encodeId(ticket.id)}`)}
+                            sx={{ color: 'primary.main' }}
+                          >
+                            <Visibility />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Copy ticket link">
+                          <IconButton
+                            size="small"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const ticketUrl = `${window.location.origin}/tickets/${encodeId(ticket.id)}`;
+                              navigator.clipboard.writeText(ticketUrl).then(() => {
+                                toast.success('Ticket link copied to clipboard! 🔗', {
+                                  duration: 3000,
+                                });
+                              }).catch(() => {
+                                toast.error('Failed to copy link');
+                              });
+                            }}
+                            sx={{ 
+                              color: 'text.secondary',
+                              '&:hover': { 
+                                color: 'primary.main',
+                                bgcolor: 'primary.light'
+                              }
+                            }}
+                          >
+                            <ContentCopy fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
                     </TableCell>
                   </TableRow>
                 );
@@ -1110,16 +1147,45 @@ const Tickets = () => {
                           <Typography variant="caption" color="text.secondary">
                             {new Date(ticket.created_at).toLocaleDateString()}
                           </Typography>
-                          <IconButton
-                            size="small"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              navigate(`/tickets/${encodeId(ticket.id)}`);
-                            }}
-                            sx={{ color: 'primary.main' }}
-                          >
-                            <Visibility fontSize="small" />
-                          </IconButton>
+                          <Box display="flex" gap={0.5}>
+                            <Tooltip title="View ticket">
+                              <IconButton
+                                size="small"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigate(`/tickets/${encodeId(ticket.id)}`);
+                                }}
+                                sx={{ color: 'primary.main' }}
+                              >
+                                <Visibility fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                            <Tooltip title="Copy ticket link">
+                              <IconButton
+                                size="small"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const ticketUrl = `${window.location.origin}/tickets/${encodeId(ticket.id)}`;
+                                  navigator.clipboard.writeText(ticketUrl).then(() => {
+                                    toast.success('Ticket link copied to clipboard! 🔗', {
+                                      duration: 3000,
+                                    });
+                                  }).catch(() => {
+                                    toast.error('Failed to copy link');
+                                  });
+                                }}
+                                sx={{ 
+                                  color: 'text.secondary',
+                                  '&:hover': { 
+                                    color: 'primary.main',
+                                    bgcolor: 'primary.light'
+                                  }
+                                }}
+                              >
+                                <ContentCopy fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </Box>
                         </Box>
                       </Paper>
                     </Grid>

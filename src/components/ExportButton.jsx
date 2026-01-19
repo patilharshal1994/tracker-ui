@@ -13,6 +13,7 @@ import {
   Description
 } from '@mui/icons-material';
 import * as XLSX from 'xlsx';
+import toast from 'react-hot-toast';
 import React from 'react';
 
 const ExportButton = ({ data, filename = 'tickets' }) => {
@@ -28,7 +29,7 @@ const ExportButton = ({ data, filename = 'tickets' }) => {
 
   const exportToCSV = () => {
     if (!data || data.length === 0) {
-      alert('No data to export');
+      toast.error('No data to export');
       return;
     }
 
@@ -56,12 +57,13 @@ const ExportButton = ({ data, filename = 'tickets' }) => {
     link.href = URL.createObjectURL(blob);
     link.download = `${filename}_${new Date().toISOString().split('T')[0]}.csv`;
     link.click();
+    toast.success('Data exported to CSV successfully! 📊');
     handleClose();
   };
 
   const exportToExcel = () => {
     if (!data || data.length === 0) {
-      alert('No data to export');
+      toast.error('No data to export');
       return;
     }
 
@@ -83,12 +85,14 @@ const ExportButton = ({ data, filename = 'tickets' }) => {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Tickets');
     XLSX.writeFile(workbook, `${filename}_${new Date().toISOString().split('T')[0]}.xlsx`);
+    toast.success('Data exported to Excel successfully! 📈');
     handleClose();
   };
 
   const exportToPDF = () => {
     // Simple PDF export using window.print() - for full PDF, would need jsPDF
-    alert('PDF export will open print dialog. For full PDF export, jsPDF library integration needed.');
+    toast.info('Opening print dialog for PDF export... 🖨️');
+    window.print();
     handleClose();
   };
 

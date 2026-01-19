@@ -28,6 +28,7 @@ import {
   Description
 } from '@mui/icons-material';
 import { mockApi, USE_MOCK_DATA } from '../data/mockData';
+import toast from 'react-hot-toast';
 import React from 'react';
 import RichTextEditor from './RichTextEditor';
 // Mock templates
@@ -112,6 +113,7 @@ const TicketTemplate = ({ open, onClose, onSelect, projects = [] }) => {
       created_by: 1
     };
     setTemplates([...templates, newTemplate]);
+    toast.success(`Template "${formData.name}" created successfully! 📝`);
     setFormData({
       name: '',
       project_id: '',
@@ -126,6 +128,7 @@ const TicketTemplate = ({ open, onClose, onSelect, projects = [] }) => {
   const handleDelete = (templateId) => {
     if (window.confirm('Are you sure you want to delete this template?')) {
       setTemplates(templates.filter(t => t.id !== templateId));
+      toast.success('Template deleted successfully! 🗑️');
     }
   };
 

@@ -24,14 +24,18 @@ import {
   People,
   Groups,
   Logout,
-  Menu as MenuIcon
+  Menu as MenuIcon,
+  ChevronLeft,
+  ChevronRight
 } from '@mui/icons-material';
-import { Chip } from '@mui/material';
+import toast from 'react-hot-toast';
+import { Chip, IconButton, Tooltip } from '@mui/material';
 import { useAuth } from '../context/AuthContext';
 import { mockUser, USE_MOCK_DATA } from '../data/mockData';
 import NotificationCenter from './NotificationCenter';
-import React from 'react'
+import React, { useEffect, useRef } from 'react'
 const drawerWidth = 240;
+const collapsedDrawerWidth = 64;
 
 const Layout = ({ children }) => {
   const navigate = useNavigate();
@@ -41,6 +45,24 @@ const Layout = ({ children }) => {
   const logout = auth?.logout || (() => {});
   const [mobileOpen, setMobileOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState(null);
+  const [collapsed, setCollapsed] = useState(false);
+  const hasWelcomed = useRef(false);
+
+  // Show welcome message on first load
+  useEffect(() => {
+    if (user && !hasWelcomed.current && location.pathname !== '/login') {
+      hasWelcomed.current = true;
+      setTimeout(() => {
+        toast.success(`Welcome, ${user.name}! 👋`, {
+          duration: 4000,
+          style: {
+            fontSize: '16px',
+            padding: '20px',
+          },
+        });
+      }, 500);
+    }
+  }, [user, location.pathname]);
 
   const menuItems = [
     { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard' },
@@ -73,29 +95,77 @@ const Layout = ({ children }) => {
   };
 
   const drawer = (
-    <Box>
-      <Toolbar sx={{ bgcolor: 'primary.main', color: 'white' }}>
-        <Typography variant="h6" noWrap component="div">
-          Issue Tracker
-        </Typography>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <Toolbar 
+        sx={{ 
+          bgcolor: 'primary.main', 
+          color: 'white',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          minHeight: '64px !important'
+        }}
+      >
+        {!collapsed && (
+          <Typography variant="h6" noWrap component="div">
+            Issue Tracker
+          </Typography>
+        )}
+        <IconButton
+          onClick={() => setCollapsed(!collapsed)}
+          sx={{ 
+            color: 'white',
+            display: { xs: 'none', sm: 'flex' }
+          }}
+        >
+          {collapsed ? <ChevronRight /> : <ChevronLeft />}
+        </IconButton>
       </Toolbar>
-      <List>
-        {menuItems.map((item) => (
-          <ListItem key={item.text} disablePadding>
-            <ListItemButton
-              selected={location.pathname === item.path}
-              onClick={() => {
-                navigate(item.path);
-                setMobileOpen(false);
-              }}
-            >
-              <ListItemIcon sx={{ color: location.pathname === item.path ? 'primary.main' : 'inherit' }}>
-                {item.icon}
-              </ListItemIcon>
-              <ListItemText primary={item.text} />
-            </ListItemButton>
-          </ListItem>
-        ))}
+      <List sx={{ flexGrow: 1 }}>
+        {menuItems.map((item) => {
+          const isSelected = location.pathname === item.path;
+          const listItem = (
+            <ListItem key={item.text} disablePadding>
+              <ListItemButton
+                selected={isSelected}
+                onClick={() => {
+                  navigate(item.path);
+                  setMobileOpen(false);
+                }}
+                sx={{
+                  minHeight: 48,
+                  justifyContent: collapsed ? 'center' : 'flex-start',
+                  px: collapsed ? 1.5 : 2,
+                  '&.Mui-selected': {
+                    bgcolor: 'primary.light',
+                    '&:hover': {
+                      bgcolor: 'primary.light'
+                    }
+                  }
+                }}
+              >
+                <ListItemIcon 
+                  sx={{ 
+                    color: isSelected ? 'primary.main' : 'inherit',
+                    minWidth: collapsed ? 0 : 56,
+                    justifyContent: 'center'
+                  }}
+                >
+                  {item.icon}
+                </ListItemIcon>
+                {!collapsed && <ListItemText primary={item.text} />}
+              </ListItemButton>
+            </ListItem>
+          );
+
+          return collapsed ? (
+            <Tooltip key={item.text} title={item.text} placement="right" arrow>
+              {listItem}
+            </Tooltip>
+          ) : (
+            listItem
+          );
+        })}
       </List>
     </Box>
   );
@@ -105,8 +175,17 @@ const Layout = ({ children }) => {
       <AppBar
         position="fixed"
         sx={{
-          width: { sm: `calc(100% - ${drawerWidth}px)` },
-          ml: { sm: `${drawerWidth}px` }
+          width: { 
+            sm: collapsed 
+              ? `calc(100% - ${collapsedDrawerWidth}px)` 
+              : `calc(100% - ${drawerWidth}px)` 
+          },
+          ml: { 
+            sm: collapsed 
+              ? `${collapsedDrawerWidth}px` 
+              : `${drawerWidth}px` 
+          },
+          transition: 'width 0.3s, margin 0.3s'
         }}
       >
         <Toolbar>
@@ -160,7 +239,13 @@ const Layout = ({ children }) => {
       </AppBar>
       <Box
         component="nav"
-        sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
+        sx={{ 
+          width: { 
+            sm: collapsed ? collapsedDrawerWidth : drawerWidth 
+          }, 
+          flexShrink: { sm: 0 },
+          transition: 'width 0.3s'
+        }}
       >
         <Drawer
           variant="temporary"
@@ -178,7 +263,12 @@ const Layout = ({ children }) => {
           variant="permanent"
           sx={{
             display: { xs: 'none', sm: 'block' },
-            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth }
+            '& .MuiDrawer-paper': { 
+              boxSizing: 'border-box', 
+              width: collapsed ? collapsedDrawerWidth : drawerWidth,
+              transition: 'width 0.3s',
+              overflowX: 'hidden'
+            }
           }}
           open
         >
@@ -190,8 +280,13 @@ const Layout = ({ children }) => {
         sx={{
           flexGrow: 1,
           p: 3,
-          width: { sm: `calc(100% - ${drawerWidth}px)` },
-          mt: 8
+          width: { 
+            sm: collapsed 
+              ? `calc(100% - ${collapsedDrawerWidth}px)` 
+              : `calc(100% - ${drawerWidth}px)` 
+          },
+          mt: 8,
+          transition: 'width 0.3s'
         }}
       >
         {children}
