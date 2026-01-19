@@ -5,6 +5,7 @@ import { ThemeProvider, useTheme } from './context/ThemeContext';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
+import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
 import Projects from './pages/Projects';
 import Tickets from './pages/Tickets';
@@ -23,14 +24,12 @@ const AppRoutes = () => {
 
   return (
     <Routes>
+      <Route path="/" element={<Home />} />
+      <Route path="/home" element={<Home />} />
       <Route path="/login" element={<Login />} />
       <Route
         path="/"
-        element={
-          <Layout>
-            <Navigate to="/dashboard" />
-          </Layout>
-        }
+        element={<Navigate to="/home" />}
       />
       <Route
         path="/dashboard"
