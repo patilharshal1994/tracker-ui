@@ -23,7 +23,7 @@ api.interceptors.request.use(
   }
 );
 
-// Response interceptor to handle errors
+// Response interceptor to handle errors and token refresh
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -35,10 +35,16 @@ api.interceptors.response.use(
           const response = await axios.post(`${API_URL}/auth/refresh`, {
             refreshToken
           });
-          const { accessToken } = response.data;
-          localStorage.setItem('accessToken', accessToken);
-          error.config.headers.Authorization = `Bearer ${accessToken}`;
-          return api.request(error.config);
+          // Backend returns: { message: '...', accessToken: '...', user: {...} }
+          const { accessToken, user } = response.data;
+          if (accessToken) {
+            localStorage.setItem('accessToken', accessToken);
+            if (user) {
+              localStorage.setItem('user', JSON.stringify(user));
+            }
+            error.config.headers.Authorization = `Bearer ${accessToken}`;
+            return api.request(error.config);
+          }
         } catch (refreshError) {
           // Refresh failed, logout
           localStorage.removeItem('accessToken');

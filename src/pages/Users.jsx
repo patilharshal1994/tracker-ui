@@ -86,8 +86,10 @@ const Users = () => {
         }
         setUsers(filteredUsers);
       } else {
-        const response = await api.get('/users');
-        setUsers(response.data);
+        // Backend returns: { data: [...], pagination: {...} }
+        // Backend automatically filters based on user role
+        const response = await api.get('/users', { params: { page, limit: rowsPerPage } });
+        setUsers(response.data?.data || []);
       }
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to load users');
@@ -107,8 +109,9 @@ const Users = () => {
         }
         setTeams(filteredTeams);
       } else {
+        // Backend returns: { data: [...], pagination: {...} }
         const response = await api.get('/teams');
-        setTeams(response.data);
+        setTeams(response.data?.data || []);
       }
     } catch (err) {
       console.error('Failed to load teams:', err);
@@ -120,8 +123,9 @@ const Users = () => {
       if (USE_MOCK_DATA) {
         setOrganizations(mockOrganizations);
       } else {
-        // const response = await api.get('/organizations');
-        // setOrganizations(response.data);
+        // Backend returns: { data: [...], pagination: {...} }
+        const response = await api.get('/organizations');
+        setOrganizations(response.data?.data || []);
       }
     } catch (err) {
       console.error('Failed to load organizations:', err);
@@ -153,14 +157,16 @@ const Users = () => {
         setUsers([...users, newUser]);
         toast.success(`User "${formData.name}" created successfully! 👤`);
       } else {
-        await api.post('/users', userData);
-        toast.success(`User "${formData.name}" created successfully! 👤`);
+        // Backend returns: { data: {...}, message: '...' }
+        const response = await api.post('/users', userData);
+        const createdUser = response.data?.data || response.data;
+        toast.success(`User "${createdUser.name || formData.name}" created successfully! 👤`);
       }
       setOpenDialog(false);
       resetForm();
       fetchUsers();
     } catch (err) {
-      const errorMsg = err.response?.data?.error || 'Failed to create user';
+      const errorMsg = err.response?.data?.error || err.response?.data?.message || 'Failed to create user';
       setError(errorMsg);
       toast.error(errorMsg);
     }
@@ -179,14 +185,16 @@ const Users = () => {
         setUsers(users.map(u => u.id === editingUser.id ? { ...u, ...userData } : u));
         toast.success(`User "${formData.name}" updated successfully! ✏️`);
       } else {
-        await api.put(`/users/${editingUser.id}`, userData);
-        toast.success(`User "${formData.name}" updated successfully! ✏️`);
+        // Backend returns: { data: {...}, message: '...' }
+        const response = await api.put(`/users/${editingUser.id}`, userData);
+        const updatedUser = response.data?.data || response.data;
+        toast.success(`User "${updatedUser.name || formData.name}" updated successfully! ✏️`);
       }
       setOpenDialog(false);
       resetForm();
       fetchUsers();
     } catch (err) {
-      const errorMsg = err.response?.data?.error || 'Failed to update user';
+      const errorMsg = err.response?.data?.error || err.response?.data?.message || 'Failed to update user';
       setError(errorMsg);
       toast.error(errorMsg);
     }
@@ -255,7 +263,7 @@ const Users = () => {
       setResetPasswordData({ newPassword: '', confirmPassword: '' });
       setResettingUser(null);
     } catch (err) {
-      const errorMsg = err.response?.data?.error || 'Failed to reset password';
+      const errorMsg = err.response?.data?.error || err.response?.data?.message || 'Failed to reset password';
       setError(errorMsg);
       toast.error(errorMsg);
     }

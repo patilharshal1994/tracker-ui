@@ -40,7 +40,7 @@ import api from '../config/api';
 import React from 'react';
 
 const Profile = () => {
-  const { user: authUser } = useAuth();
+  const { user: authUser, updateUser } = useAuth();
   const user = USE_MOCK_DATA ? mockUser : (authUser || null);
   
   const [isEditing, setIsEditing] = useState(false);
@@ -94,8 +94,26 @@ const Profile = () => {
         };
         setProfileData(mockProfile);
       } else {
+        // Backend returns: { data: {...} }
+        // Use /users/:id/profile endpoint to get user profile
         const response = await api.get(`/users/${user.id}/profile`);
-        setProfileData(response.data);
+        const userData = response.data?.data || response.data;
+        setProfileData({
+          name: userData.name || '',
+          email: userData.email || '',
+          role: userData.role || '',
+          phone: userData.phone || '',
+          department: userData.department || '',
+          specialty: userData.specialty || '',
+          designation: userData.designation || '',
+          address: userData.address || '',
+          city: userData.city || '',
+          country: userData.country || '',
+          bio: userData.bio || '',
+          skills: userData.skills || [],
+          experience: userData.experience || '',
+          education: userData.education || ''
+        });
       }
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to load profile');
@@ -121,13 +139,20 @@ const Profile = () => {
         toast.success('Profile updated successfully! ✅');
         setIsEditing(false);
       } else {
-        await api.put(`/users/${user.id}/profile`, profileData);
+        // Backend returns: { data: {...}, message: '...' }
+        // Use PUT /users/:id/profile endpoint for profile update
+        const response = await api.put(`/users/${user.id}/profile`, profileData);
+        const updatedUser = response.data?.data || response.data;
         toast.success('Profile updated successfully! ✅');
         setIsEditing(false);
+        // Update auth context with new user data
+        if (updatedUser && updateUser) {
+          updateUser(updatedUser);
+        }
         loadProfile(); // Reload to get updated data
       }
     } catch (err) {
-      const errorMsg = err.response?.data?.error || 'Failed to update profile';
+      const errorMsg = err.response?.data?.error || err.response?.data?.message || 'Failed to update profile';
       setError(errorMsg);
       toast.error(errorMsg);
     } finally {

@@ -110,13 +110,16 @@ const Tickets = () => {
       );
       
       let ticketsData = [];
+      let paginationData = null;
       
       if (USE_MOCK_DATA) {
         const response = await mockApi.getTickets(params);
         ticketsData = response.data;
       } else {
-        const response = await api.get('/tickets', { params });
-        ticketsData = response.data;
+        // Backend returns: { data: [...], pagination: {...} }
+        const response = await api.get('/tickets', { params: { ...params, page, limit: rowsPerPage } });
+        ticketsData = response.data?.data || [];
+        paginationData = response.data?.pagination || null;
       }
 
       // Apply search filter if present
@@ -160,8 +163,9 @@ const Tickets = () => {
         const response = await mockApi.getProjects();
         setProjects(response.data);
       } else {
+        // Backend returns: { data: [...], pagination: {...} }
         const response = await api.get('/projects');
-        setProjects(response.data);
+        setProjects(response.data?.data || []);
       }
     } catch (err) {
       console.error('Failed to load projects:', err);
@@ -174,8 +178,9 @@ const Tickets = () => {
         const response = await mockApi.getUsers();
         setUsers(response.data);
       } else {
+        // Backend returns: { data: [...], pagination: {...} }
         const response = await api.get('/users');
-        setUsers(response.data);
+        setUsers(response.data?.data || []);
       }
     } catch (err) {
       console.error('Failed to load users:', err);
@@ -184,12 +189,16 @@ const Tickets = () => {
 
   const handleCreate = async () => {
     try {
-      await api.post('/tickets', {
+      // Backend expects: { data: {...} } format
+      const response = await api.post('/tickets', {
         ...formData,
         assignee_id: formData.assignee_id || null,
         mentioned_users: formData.mentioned_users || []
       });
-      toast.success(`Ticket "${formData.title}" created successfully! 🎫`);
+      
+      // Backend returns: { data: {...}, message: '...' }
+      const ticket = response.data?.data || response.data;
+      toast.success(`Ticket "${ticket.title || formData.title}" created successfully! 🎫`);
       if (formData.mentioned_users && formData.mentioned_users.length > 0) {
         toast.success(`${formData.mentioned_users.length} user(s) tagged! 👥`);
       }
@@ -207,7 +216,7 @@ const Tickets = () => {
       });
       fetchTickets();
     } catch (err) {
-      const errorMsg = err.response?.data?.error || 'Failed to create ticket';
+      const errorMsg = err.response?.data?.error || err.response?.data?.message || 'Failed to create ticket';
       setError(errorMsg);
       toast.error(errorMsg);
     }

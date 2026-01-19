@@ -27,8 +27,9 @@ const TagSelector = ({ value = [], onChange, disabled = false, label = 'Tags' })
         const response = await mockApi.getTags();
         setTags(response.data);
       } else {
+        // Backend returns: { data: [...], pagination: {...} }
         const response = await api.get('/tags');
-        setTags(response.data.data);
+        setTags(response.data?.data || []);
       }
     } catch (error) {
       console.error('Failed to fetch tags:', error);

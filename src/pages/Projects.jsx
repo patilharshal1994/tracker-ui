@@ -62,8 +62,9 @@ const Projects = () => {
         const response = await mockApi.getProjects();
         setProjects(response.data);
       } else {
-        const response = await api.get('/projects');
-        setProjects(response.data);
+        // Backend returns: { data: [...], pagination: {...} }
+        const response = await api.get('/projects', { params: { page, limit: rowsPerPage } });
+        setProjects(response.data?.data || []);
       }
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to load projects');
@@ -78,8 +79,9 @@ const Projects = () => {
         const response = await mockApi.getTeams();
         setTeams(response.data);
       } else {
+        // Backend returns: { data: [...], pagination: {...} }
         const response = await api.get('/teams');
-        setTeams(response.data);
+        setTeams(response.data?.data || []);
       }
     } catch (err) {
       console.error('Failed to load teams:', err);
@@ -88,16 +90,18 @@ const Projects = () => {
 
   const handleCreate = async () => {
     try {
-      await api.post('/projects', {
+      // Backend returns: { data: {...}, message: '...' }
+      const response = await api.post('/projects', {
         ...formData,
         team_id: formData.team_id || null
       });
-      toast.success(`Project "${formData.name}" created successfully! 📁`);
+      const project = response.data?.data || response.data;
+      toast.success(`Project "${project.name || formData.name}" created successfully! 📁`);
       setOpenDialog(false);
       setFormData({ name: '', description: '', team_id: '' });
       fetchProjects();
     } catch (err) {
-      const errorMsg = err.response?.data?.error || 'Failed to create project';
+      const errorMsg = err.response?.data?.error || err.response?.data?.message || 'Failed to create project';
       setError(errorMsg);
       toast.error(errorMsg);
     }

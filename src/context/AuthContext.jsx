@@ -41,8 +41,13 @@ export const AuthProvider = ({ children }) => {
         return { success: true, user: userData };
       }
 
+      // Backend returns: { message: 'Login successful', user: {...}, accessToken: '...', refreshToken: '...' }
       const response = await api.post('/auth/login', { email, password });
       const { user: userData, accessToken, refreshToken } = response.data;
+
+      if (!accessToken || !refreshToken || !userData) {
+        throw new Error('Invalid login response');
+      }
 
       localStorage.setItem('accessToken', accessToken);
       localStorage.setItem('refreshToken', refreshToken);
@@ -51,18 +56,34 @@ export const AuthProvider = ({ children }) => {
       setUser(userData);
       return { success: true, user: userData };
     } catch (error) {
+      const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message || 'Login failed';
       return {
         success: false,
-        error: error.response?.data?.error || 'Login failed'
+        error: errorMessage
       };
     }
   };
 
-  const logout = () => {
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('user');
-    setUser(null);
+  const logout = async () => {
+    try {
+      const refreshToken = localStorage.getItem('refreshToken');
+      if (refreshToken && !USE_MOCK_DATA) {
+        // Call backend logout to revoke refresh token
+        try {
+          await api.post('/auth/logout', { refreshToken });
+        } catch (err) {
+          // Continue with logout even if API call fails
+          console.warn('Logout API call failed:', err);
+        }
+      }
+    } catch (err) {
+      console.warn('Logout error:', err);
+    } finally {
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('user');
+      setUser(null);
+    }
   };
 
   const updateUser = (userData) => {

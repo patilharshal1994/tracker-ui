@@ -74,8 +74,9 @@ const TicketDetail = () => {
       if (USE_MOCK_DATA) {
         setUsers(mockUsers);
       } else {
+        // Backend returns: { data: [...], pagination: {...} }
         const response = await api.get('/users');
-        setUsers(response.data);
+        setUsers(response.data?.data || []);
       }
     } catch (err) {
       console.error('Failed to load users:', err);
@@ -100,17 +101,19 @@ const TicketDetail = () => {
           module: response.data.module || ''
         });
       } else {
+        // Backend returns: { data: {...} }
         const response = await api.get(`/tickets/${ticketId}`);
-        setTicket(response.data);
-        setAttachments(response.data.attachments || []);
-        setRelationships(response.data.relationships || []);
-        setTimeLogs(response.data.time_logs || []);
-        setWatchers(response.data.watchers || []);
+        const ticketData = response.data?.data || response.data;
+        setTicket(ticketData);
+        setAttachments(ticketData.attachments || []);
+        setRelationships(ticketData.relationships || []);
+        setTimeLogs(ticketData.time_logs || []);
+        setWatchers(ticketData.watchers || []);
         setEditData({
-          status: response.data.status,
-          priority: response.data.priority,
-          assignee_id: response.data.assignee_id || '',
-          module: response.data.module || ''
+          status: ticketData.status,
+          priority: ticketData.priority,
+          assignee_id: ticketData.assignee_id || '',
+          module: ticketData.module || ''
         });
       }
     } catch (err) {
@@ -135,7 +138,8 @@ const TicketDetail = () => {
         formData.append('mentioned_users', JSON.stringify(commentMentions));
       }
 
-      await api.post('/comments', formData, {
+      // Backend returns: { data: {...}, message: '...' }
+      const response = await api.post('/comments', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
 
@@ -145,7 +149,7 @@ const TicketDetail = () => {
       setCommentMentions([]);
       fetchTicket();
     } catch (err) {
-      const errorMsg = err.response?.data?.error || 'Failed to add comment';
+      const errorMsg = err.response?.data?.error || err.response?.data?.message || 'Failed to add comment';
       setError(errorMsg);
       toast.error(errorMsg);
     }
@@ -153,7 +157,8 @@ const TicketDetail = () => {
 
   const handleUpdate = async () => {
     try {
-      await api.put(`/tickets/${ticketId}`, {
+      // Backend returns: { data: {...}, message: '...' }
+      const response = await api.put(`/tickets/${ticketId}`, {
         ...editData,
         assignee_id: editData.assignee_id || null
       });
@@ -161,7 +166,7 @@ const TicketDetail = () => {
       setOpenEditDialog(false);
       fetchTicket();
     } catch (err) {
-      const errorMsg = err.response?.data?.error || 'Failed to update ticket';
+      const errorMsg = err.response?.data?.error || err.response?.data?.message || 'Failed to update ticket';
       setError(errorMsg);
       toast.error(errorMsg);
     }

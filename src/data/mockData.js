@@ -1,7 +1,7 @@
 // Mock data for frontend development without backend
 
 // Set to true to use mock data instead of real API
-export const USE_MOCK_DATA = true;
+export const USE_MOCK_DATA = false;
 
 // Mock Organizations
 export const mockOrganizations = [

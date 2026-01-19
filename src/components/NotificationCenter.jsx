@@ -45,11 +45,12 @@ const NotificationCenter = () => {
   const fetchNotifications = async () => {
     try {
       setLoading(true);
+      // Backend returns: { data: [...], unread_count: number, pagination: {...} }
       const response = await api.get('/notifications', {
         params: { limit: 20 }
       });
-      setNotifications(response.data.data);
-      setUnreadCount(response.data.unread_count);
+      setNotifications(response.data?.data || []);
+      setUnreadCount(response.data?.unread_count || 0);
     } catch (error) {
       console.error('Failed to fetch notifications:', error);
     } finally {

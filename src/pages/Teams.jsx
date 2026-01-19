@@ -68,8 +68,9 @@ const Teams = () => {
         }
         setTeams(filteredTeams);
       } else {
+        // Backend returns: { data: [...], pagination: {...} }
         const response = await api.get('/teams');
-        setTeams(response.data);
+        setTeams(response.data?.data || []);
       }
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to load teams');
@@ -83,8 +84,9 @@ const Teams = () => {
       if (USE_MOCK_DATA) {
         setOrganizations(mockOrganizations);
       } else {
-        // const response = await api.get('/organizations');
-        // setOrganizations(response.data);
+        // Backend returns: { data: [...], pagination: {...} }
+        const response = await api.get('/organizations');
+        setOrganizations(response.data?.data || []);
       }
     } catch (err) {
       console.error('Failed to load organizations:', err);
@@ -98,8 +100,9 @@ const Teams = () => {
         setTeamDetails(response.data);
         setSelectedTeam(teamId);
       } else {
+        // Backend returns: { data: {...} }
         const response = await api.get(`/teams/${teamId}`);
-        setTeamDetails(response.data);
+        setTeamDetails(response.data?.data || response.data);
         setSelectedTeam(teamId);
       }
     } catch (err) {
@@ -125,14 +128,16 @@ const Teams = () => {
         setTeams([...teams, newTeam]);
         toast.success(`Team "${formData.name}" created successfully! 👥`);
       } else {
-        await api.post('/teams', teamData);
-        toast.success(`Team "${formData.name}" created successfully! 👥`);
+        // Backend returns: { data: {...}, message: '...' }
+        const response = await api.post('/teams', teamData);
+        const createdTeam = response.data?.data || response.data;
+        toast.success(`Team "${createdTeam.name || formData.name}" created successfully! 👥`);
       }
       setOpenDialog(false);
       resetForm();
       fetchTeams();
     } catch (err) {
-      const errorMsg = err.response?.data?.error || 'Failed to create team';
+      const errorMsg = err.response?.data?.error || err.response?.data?.message || 'Failed to create team';
       setError(errorMsg);
       toast.error(errorMsg);
     }
@@ -149,8 +154,10 @@ const Teams = () => {
         setTeams(teams.map(t => t.id === editingTeam.id ? { ...t, ...teamData } : t));
         toast.success(`Team "${formData.name}" updated successfully! ✏️`);
       } else {
-        await api.put(`/teams/${editingTeam.id}`, teamData);
-        toast.success(`Team "${formData.name}" updated successfully! ✏️`);
+        // Backend returns: { data: {...}, message: '...' }
+        const response = await api.put(`/teams/${editingTeam.id}`, teamData);
+        const updatedTeam = response.data?.data || response.data;
+        toast.success(`Team "${updatedTeam.name || formData.name}" updated successfully! ✏️`);
       }
       setOpenDialog(false);
       resetForm();
@@ -159,7 +166,7 @@ const Teams = () => {
         fetchTeamDetails(editingTeam.id);
       }
     } catch (err) {
-      const errorMsg = err.response?.data?.error || 'Failed to update team';
+      const errorMsg = err.response?.data?.error || err.response?.data?.message || 'Failed to update team';
       setError(errorMsg);
       toast.error(errorMsg);
     }
@@ -177,7 +184,7 @@ const Teams = () => {
         setTeamDetails(null);
       }
     } catch (err) {
-      const errorMsg = err.response?.data?.error || 'Failed to delete team';
+      const errorMsg = err.response?.data?.error || err.response?.data?.message || 'Failed to delete team';
       setError(errorMsg);
       toast.error(errorMsg);
     }

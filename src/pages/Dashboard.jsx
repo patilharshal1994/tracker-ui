@@ -82,15 +82,18 @@ const Dashboard = () => {
         ]);
       }
 
-      const tickets = ticketsRes.data;
-      const allTickets = user.role === 'ADMIN' ? tickets : tickets;
+      // Backend returns: { data: [...], pagination: {...} }
+      const tickets = USE_MOCK_DATA ? ticketsRes.data : (ticketsRes.data?.data || []);
+      const breachedTickets = USE_MOCK_DATA ? breachedRes.data : (breachedRes.data?.data || []);
+      
+      const allTickets = user.role === 'ADMIN' || user.role === 'SUPER_ADMIN' || user.role === 'ORG_ADMIN' ? tickets : tickets;
       const assigned = tickets.filter((t) => t.assignee_id === user.id);
       const reported = tickets.filter((t) => t.reporter_id === user.id);
 
       const statsData = {
         assigned,
         reported,
-        breached: breachedRes.data,
+        breached: breachedTickets,
         all: allTickets
       };
 
