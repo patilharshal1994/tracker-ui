@@ -35,6 +35,7 @@ import { useAuth } from '../context/AuthContext';
 import { mockApi, mockProjects, mockTeams, USE_MOCK_DATA } from '../data/mockData';
 import { encodeId } from '../utils/idEncoder';
 import RichTextEditor from '../components/RichTextEditor';
+import { canAccess, ROLES, getRoleDisplayName, getRoleColor } from '../utils/roleHierarchy';
 import React from 'react'
 const Projects = () => {
   const navigate = useNavigate();
@@ -48,9 +49,13 @@ const Projects = () => {
   const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
+  const canCreateProjects = canAccess(user, 'create_projects');
+  const canViewAllProjects = canAccess(user, 'view_all_projects');
+
   useEffect(() => {
     fetchProjects();
-    if (user.role === 'ADMIN') {
+    // Fetch teams for users who can create projects (SUPER_ADMIN, ORG_ADMIN, TEAM_LEAD)
+    if (canCreateProjects) {
       fetchTeams();
     }
   }, []);
@@ -77,9 +82,15 @@ const Projects = () => {
     try {
       if (USE_MOCK_DATA) {
         const response = await mockApi.getTeams();
-        setTeams(response.data);
+        // Filter teams by organization for Org Admin
+        let filteredTeams = response.data;
+        if (user?.role === ROLES.ORG_ADMIN && user?.organization_id) {
+          filteredTeams = response.data.filter(t => t.organization_id === user.organization_id);
+        }
+        setTeams(filteredTeams);
       } else {
         // Backend returns: { data: [...], pagination: {...} }
+        // Backend automatically filters based on user role
         const response = await api.get('/teams');
         setTeams(response.data?.data || []);
       }
@@ -138,22 +149,27 @@ const Projects = () => {
           <Box display="flex" alignItems="center" gap={2} mb={1}>
             <Typography variant="h4">Projects</Typography>
             <Chip
-              label={user.role}
-              color={user.role === 'ADMIN' ? 'primary' : 'default'}
+              label={getRoleDisplayName(user?.role)}
+              color={getRoleColor(user?.role)}
               size="small"
             />
           </Box>
           <Typography variant="body2" color="text.secondary">
-            {user.role === 'ADMIN' 
-              ? 'Manage all projects and assign teams' 
+            {user?.role === ROLES.SUPER_ADMIN
+              ? 'Manage all projects across all organizations'
+              : user?.role === ROLES.ORG_ADMIN
+              ? 'Manage projects within your organization'
+              : user?.role === ROLES.TEAM_LEAD
+              ? 'Manage projects in your team'
               : 'View projects you are assigned to'}
           </Typography>
         </Box>
-        {user.role === 'ADMIN' && (
+        {canCreateProjects && (
           <Button
             variant="contained"
             startIcon={<Add />}
             onClick={() => setOpenDialog(true)}
+            sx={{ borderRadius: 2 }}
           >
             New Project
           </Button>
@@ -302,23 +318,24 @@ const Projects = () => {
               minHeight={120}
             />
           </Box>
-          {user.role === 'ADMIN' && (
-            <TextField
-              fullWidth
-              select
-              label="Team"
-              value={formData.team_id}
-              onChange={(e) => setFormData({ ...formData, team_id: e.target.value })}
-              margin="normal"
-              SelectProps={{ native: true }}
-            >
-              <option value="">None</option>
-              {teams.map((team) => (
-                <option key={team.id} value={team.id}>
-                  {team.name}
-                </option>
-              ))}
-            </TextField>
+          {canCreateProjects && (
+            <FormControl fullWidth margin="normal">
+              <InputLabel>Team (Optional)</InputLabel>
+              <Select
+                value={formData.team_id}
+                onChange={(e) => setFormData({ ...formData, team_id: e.target.value })}
+                label="Team (Optional)"
+              >
+                <MenuItem value="">
+                  <em>None</em>
+                </MenuItem>
+                {teams.map((team) => (
+                  <MenuItem key={team.id} value={team.id}>
+                    {team.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
           )}
         </DialogContent>
         <DialogActions>

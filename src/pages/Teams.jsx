@@ -113,9 +113,13 @@ const Teams = () => {
   const handleCreate = async () => {
     try {
       // Set organization_id based on user role
+      // Convert empty string to null/undefined for optional fields
       const teamData = {
-        ...formData,
-        organization_id: user?.role === ROLES.ORG_ADMIN ? user.organization_id : formData.organization_id
+        name: formData.name,
+        description: formData.description || undefined,
+        organization_id: user?.role === ROLES.ORG_ADMIN 
+          ? user.organization_id 
+          : (formData.organization_id || undefined)
       };
       
       if (USE_MOCK_DATA) {
@@ -145,9 +149,13 @@ const Teams = () => {
 
   const handleUpdate = async () => {
     try {
+      // Convert empty string to null/undefined for optional fields
       const teamData = {
-        ...formData,
-        organization_id: user?.role === ROLES.ORG_ADMIN ? user.organization_id : formData.organization_id
+        name: formData.name,
+        description: formData.description || undefined,
+        organization_id: user?.role === ROLES.ORG_ADMIN 
+          ? user.organization_id 
+          : (formData.organization_id || undefined)
       };
       
       if (USE_MOCK_DATA) {
