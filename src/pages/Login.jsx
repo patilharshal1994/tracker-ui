@@ -8,10 +8,18 @@ import {
   Typography,
   Box,
   Alert,
-  CircularProgress
+  CircularProgress,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Chip,
+  Divider
 } from '@mui/material';
+import { ExpandMore, AdminPanelSettings, Business, Group, Person } from '@mui/icons-material';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
+import { mockUsers, mockOrganizations, USE_MOCK_DATA } from '../data/mockData';
+import { getRoleDisplayName, getRoleColor, ROLES } from '../utils/roleHierarchy';
 import React from 'react'
 
 const Login = () => {
@@ -101,9 +109,129 @@ const Login = () => {
             </Button>
           </form>
 
-          <Typography variant="body2" color="text.secondary" align="center" sx={{ mt: 2 }}>
-            Demo: admin@tracker.com / password123
-          </Typography>
+          {USE_MOCK_DATA && (
+            <Accordion sx={{ mt: 3 }}>
+              <AccordionSummary expandIcon={<ExpandMore />}>
+                <Typography variant="body2" fontWeight="medium">
+                  Demo Accounts (Click to expand)
+                </Typography>
+              </AccordionSummary>
+              <AccordionDetails>
+                <Box>
+                  <Typography variant="caption" color="text.secondary" sx={{ mb: 2, display: 'block' }}>
+                    Password for all accounts: <strong>password123</strong>
+                  </Typography>
+                  
+                  {/* Super Admin */}
+                  {mockUsers.filter(u => u.role === ROLES.SUPER_ADMIN).map(user => (
+                    <Box key={user.id} sx={{ mb: 2, p: 1.5, bgcolor: 'action.hover', borderRadius: 1 }}>
+                      <Box display="flex" alignItems="center" gap={1} mb={1}>
+                        <AdminPanelSettings color="error" />
+                        <Typography variant="body2" fontWeight="bold">
+                          {user.name}
+                        </Typography>
+                        <Chip
+                          label={getRoleDisplayName(user.role)}
+                          size="small"
+                          color={getRoleColor(user.role)}
+                        />
+                      </Box>
+                      <Typography variant="caption" color="text.secondary">
+                        Email: {user.email}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                        Access: All Organizations
+                      </Typography>
+                    </Box>
+                  ))}
+
+                  <Divider sx={{ my: 2 }} />
+
+                  {/* Organization Admins */}
+                  {mockUsers.filter(u => u.role === ROLES.ORG_ADMIN).map(user => {
+                    const org = mockOrganizations.find(o => o.id === user.organization_id);
+                    return (
+                      <Box key={user.id} sx={{ mb: 2, p: 1.5, bgcolor: 'action.hover', borderRadius: 1 }}>
+                        <Box display="flex" alignItems="center" gap={1} mb={1}>
+                          <Business color="primary" />
+                          <Typography variant="body2" fontWeight="bold">
+                            {user.name}
+                          </Typography>
+                          <Chip
+                            label={getRoleDisplayName(user.role)}
+                            size="small"
+                            color={getRoleColor(user.role)}
+                          />
+                        </Box>
+                        <Typography variant="caption" color="text.secondary">
+                          Email: {user.email}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                          Organization: {org?.name || 'Unknown'}
+                        </Typography>
+                      </Box>
+                    );
+                  })}
+
+                  <Divider sx={{ my: 2 }} />
+
+                  {/* Team Leads */}
+                  {mockUsers.filter(u => u.role === ROLES.TEAM_LEAD).map(user => {
+                    const org = mockOrganizations.find(o => o.id === user.organization_id);
+                    return (
+                      <Box key={user.id} sx={{ mb: 2, p: 1.5, bgcolor: 'action.hover', borderRadius: 1 }}>
+                        <Box display="flex" alignItems="center" gap={1} mb={1}>
+                          <Group color="secondary" />
+                          <Typography variant="body2" fontWeight="bold">
+                            {user.name}
+                          </Typography>
+                          <Chip
+                            label={getRoleDisplayName(user.role)}
+                            size="small"
+                            color={getRoleColor(user.role)}
+                          />
+                        </Box>
+                        <Typography variant="caption" color="text.secondary">
+                          Email: {user.email}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                          Organization: {org?.name || 'Unknown'}
+                        </Typography>
+                      </Box>
+                    );
+                  })}
+
+                  <Divider sx={{ my: 2 }} />
+
+                  {/* Regular Users */}
+                  {mockUsers.filter(u => u.role === ROLES.USER).map(user => {
+                    const org = mockOrganizations.find(o => o.id === user.organization_id);
+                    return (
+                      <Box key={user.id} sx={{ mb: 2, p: 1.5, bgcolor: 'action.hover', borderRadius: 1 }}>
+                        <Box display="flex" alignItems="center" gap={1} mb={1}>
+                          <Person color="action" />
+                          <Typography variant="body2" fontWeight="bold">
+                            {user.name}
+                          </Typography>
+                          <Chip
+                            label={getRoleDisplayName(user.role)}
+                            size="small"
+                            color={getRoleColor(user.role)}
+                          />
+                        </Box>
+                        <Typography variant="caption" color="text.secondary">
+                          Email: {user.email}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                          Organization: {org?.name || 'Unknown'}
+                        </Typography>
+                      </Box>
+                    );
+                  })}
+                </Box>
+              </AccordionDetails>
+            </Accordion>
+          )}
         </Paper>
       </Box>
     </Container>

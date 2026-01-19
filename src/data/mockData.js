@@ -3,42 +3,122 @@
 // Set to true to use mock data instead of real API
 export const USE_MOCK_DATA = true;
 
+// Mock Organizations
+export const mockOrganizations = [
+  {
+    id: 1,
+    name: 'TechCorp Inc.',
+    description: 'Leading technology solutions provider',
+    created_at: '2024-01-01T00:00:00Z',
+    is_active: true
+  },
+  {
+    id: 2,
+    name: 'DevSolutions Ltd.',
+    description: 'Software development company',
+    created_at: '2024-01-05T00:00:00Z',
+    is_active: true
+  }
+];
+
+// Default mock user (can be switched via RoleSwitcher)
 export const mockUser = {
   id: 1,
-  name: 'Admin User',
-  email: 'admin@tracker.com',
-  role: 'ADMIN',
-  team_id: 1,
+  name: 'Super Admin',
+  email: 'superadmin@tracker.com',
+  role: 'SUPER_ADMIN',
+  organization_id: null, // Super Admin has access to all organizations
+  team_id: null,
   is_active: true
 };
 
 export const mockUsers = [
+  // Super Admin
   {
     id: 1,
-    name: 'Admin User',
-    email: 'admin@tracker.com',
-    role: 'ADMIN',
-    team_id: 1,
+    name: 'Super Admin',
+    email: 'superadmin@tracker.com',
+    role: 'SUPER_ADMIN',
+    organization_id: null,
+    team_id: null,
     is_active: true,
     created_at: '2024-01-01T00:00:00Z'
   },
+  // Organization Admin - Org 1
   {
     id: 2,
-    name: 'John Doe',
-    email: 'user1@tracker.com',
-    role: 'USER',
-    team_id: 1,
+    name: 'Org Admin',
+    email: 'orgadmin@tracker.com',
+    role: 'ORG_ADMIN',
+    organization_id: 1,
+    team_id: null,
     is_active: true,
     created_at: '2024-01-02T00:00:00Z'
   },
+  // Team Lead - Org 1, Team 1
   {
     id: 3,
-    name: 'Jane Smith',
-    email: 'user2@tracker.com',
-    role: 'USER',
+    name: 'Team Lead',
+    email: 'teamlead@tracker.com',
+    role: 'TEAM_LEAD',
+    organization_id: 1,
     team_id: 1,
     is_active: true,
     created_at: '2024-01-03T00:00:00Z'
+  },
+  // Users - Org 1, Team 1
+  {
+    id: 4,
+    name: 'John Doe',
+    email: 'user1@tracker.com',
+    role: 'USER',
+    organization_id: 1,
+    team_id: 1,
+    is_active: true,
+    created_at: '2024-01-04T00:00:00Z'
+  },
+  {
+    id: 5,
+    name: 'Jane Smith',
+    email: 'user2@tracker.com',
+    role: 'USER',
+    organization_id: 1,
+    team_id: 1,
+    is_active: true,
+    created_at: '2024-01-05T00:00:00Z'
+  },
+  // Organization Admin - Org 2
+  {
+    id: 6,
+    name: 'Org Admin 2',
+    email: 'orgadmin2@tracker.com',
+    role: 'ORG_ADMIN',
+    organization_id: 2,
+    team_id: null,
+    is_active: true,
+    created_at: '2024-01-06T00:00:00Z'
+  },
+  // Team Lead - Org 2, Team 2
+  {
+    id: 7,
+    name: 'Team Lead 2',
+    email: 'teamlead2@tracker.com',
+    role: 'TEAM_LEAD',
+    organization_id: 2,
+    team_id: 2,
+    is_active: true,
+    created_at: '2024-01-07T00:00:00Z'
+  },
+  // User - Org 2, Team 2
+  {
+    id: 8,
+    name: 'Bob Wilson',
+    email: 'user3@tracker.com',
+    role: 'USER',
+    organization_id: 2,
+    team_id: 2,
+    is_active: true,
+    created_at: '2024-01-08T00:00:00Z'
   }
 ];
 
@@ -46,17 +126,29 @@ export const mockTeams = [
   {
     id: 1,
     name: 'Development Team',
+    organization_id: 1,
     created_at: '2024-01-01T00:00:00Z',
     members: [
-      { id: 1, name: 'Admin User', email: 'admin@tracker.com', role: 'ADMIN' },
-      { id: 2, name: 'John Doe', email: 'user1@tracker.com', role: 'USER' },
-      { id: 3, name: 'Jane Smith', email: 'user2@tracker.com', role: 'USER' }
+      { id: 3, name: 'Team Lead', email: 'teamlead@tracker.com', role: 'TEAM_LEAD' },
+      { id: 4, name: 'John Doe', email: 'user1@tracker.com', role: 'USER' },
+      { id: 5, name: 'Jane Smith', email: 'user2@tracker.com', role: 'USER' }
     ]
   },
   {
     id: 2,
     name: 'QA Team',
+    organization_id: 2,
     created_at: '2024-01-05T00:00:00Z',
+    members: [
+      { id: 7, name: 'Team Lead 2', email: 'teamlead2@tracker.com', role: 'TEAM_LEAD' },
+      { id: 8, name: 'Bob Wilson', email: 'user3@tracker.com', role: 'USER' }
+    ]
+  },
+  {
+    id: 3,
+    name: 'Design Team',
+    organization_id: 1,
+    created_at: '2024-01-10T00:00:00Z',
     members: []
   }
 ];
@@ -398,10 +490,13 @@ export const mockApi = {
   // Auth
   login: async (email, password) => {
     await delay();
-    if (email === 'admin@tracker.com' && password === 'password123') {
+    // Find user by email
+    const user = mockUsers.find(u => u.email === email);
+    
+    if (user && password === 'password123') {
       return {
         data: {
-          user: mockUser,
+          user: user,
           accessToken: 'mock-access-token',
           refreshToken: 'mock-refresh-token'
         }

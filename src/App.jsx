@@ -13,6 +13,7 @@ import TicketDetail from './pages/TicketDetail';
 import Users from './pages/Users';
 import Teams from './pages/Teams';
 import Profile from './pages/Profile';
+import Organizations from './pages/Organizations';
 import React from 'react'
 
 const AppRoutes = () => {
@@ -84,6 +85,14 @@ const AppRoutes = () => {
         element={
           <Layout>
             <Profile />
+          </Layout>
+        }
+      />
+      <Route
+        path="/organizations"
+        element={
+          <Layout>
+            <Organizations />
           </Layout>
         }
       />

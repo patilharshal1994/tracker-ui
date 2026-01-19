@@ -8,9 +8,10 @@ import {
   Typography,
   Divider
 } from '@mui/material';
-import { AdminPanelSettings, Person } from '@mui/icons-material';
+import { AdminPanelSettings, Person, Business, Group } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
-import { mockUsers, USE_MOCK_DATA } from '../data/mockData';
+import { mockUsers, mockOrganizations, USE_MOCK_DATA } from '../data/mockData';
+import { getRoleDisplayName, getRoleColor, ROLES } from '../utils/roleHierarchy';
 import React from 'react';
 
 const RoleSwitcher = () => {
@@ -33,8 +34,30 @@ const RoleSwitcher = () => {
     window.location.reload(); // Reload to update all role-based content
   };
 
-  const adminUser = mockUsers.find(u => u.role === 'ADMIN');
-  const regularUsers = mockUsers.filter(u => u.role === 'USER');
+  const getRoleIcon = (role) => {
+    switch (role) {
+      case ROLES.SUPER_ADMIN:
+        return <AdminPanelSettings sx={{ mr: 1, fontSize: 18 }} />;
+      case ROLES.ORG_ADMIN:
+        return <Business sx={{ mr: 1, fontSize: 18 }} />;
+      case ROLES.TEAM_LEAD:
+        return <Group sx={{ mr: 1, fontSize: 18 }} />;
+      default:
+        return <Person sx={{ mr: 1, fontSize: 18 }} />;
+    }
+  };
+
+  const getOrganizationName = (orgId) => {
+    if (!orgId) return 'All Organizations';
+    const org = mockOrganizations.find(o => o.id === orgId);
+    return org ? org.name : 'Unknown';
+  };
+
+  // Group users by role
+  const superAdmin = mockUsers.find(u => u.role === ROLES.SUPER_ADMIN);
+  const orgAdmins = mockUsers.filter(u => u.role === ROLES.ORG_ADMIN);
+  const teamLeads = mockUsers.filter(u => u.role === ROLES.TEAM_LEAD);
+  const regularUsers = mockUsers.filter(u => u.role === ROLES.USER);
 
   return (
     <Box>
@@ -52,9 +75,9 @@ const RoleSwitcher = () => {
         }}
       >
         <Chip
-          label={user?.role || 'USER'}
+          label={user ? getRoleDisplayName(user.role) : 'USER'}
           size="small"
-          color={user?.role === 'ADMIN' ? 'primary' : 'default'}
+          color={user ? getRoleColor(user.role) : 'default'}
           sx={{ mr: 1, height: 20 }}
         />
         Switch Role
@@ -64,7 +87,7 @@ const RoleSwitcher = () => {
         open={Boolean(anchorEl)}
         onClose={handleClose}
         PaperProps={{
-          sx: { minWidth: 200, mt: 1 }
+          sx: { minWidth: 280, mt: 1, maxHeight: 500, overflow: 'auto' }
         }}
       >
         <Box sx={{ p: 1.5 }}>
@@ -73,39 +96,112 @@ const RoleSwitcher = () => {
           </Typography>
         </Box>
         <Divider />
-        {adminUser && (
+        
+        {/* Super Admin */}
+        {superAdmin && (
           <MenuItem
-            onClick={() => switchRole(adminUser)}
-            selected={user?.id === adminUser.id}
+            onClick={() => switchRole(superAdmin)}
+            selected={user?.id === superAdmin.id}
           >
-            <AdminPanelSettings sx={{ mr: 1, fontSize: 18 }} />
+            {getRoleIcon(superAdmin.role)}
             <Box>
               <Typography variant="body2" fontWeight="medium">
-                {adminUser.name}
+                {superAdmin.name}
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                ADMIN - Full Access
+                {getRoleDisplayName(superAdmin.role)} - All Organizations
               </Typography>
             </Box>
           </MenuItem>
         )}
-        {regularUsers.map((regularUser) => (
-          <MenuItem
-            key={regularUser.id}
-            onClick={() => switchRole(regularUser)}
-            selected={user?.id === regularUser.id}
-          >
-            <Person sx={{ mr: 1, fontSize: 18 }} />
-            <Box>
-              <Typography variant="body2" fontWeight="medium">
-                {regularUser.name}
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                USER - Limited Access
+
+        {/* Organization Admins */}
+        {orgAdmins.length > 0 && (
+          <>
+            <Divider sx={{ my: 0.5 }} />
+            <Box sx={{ px: 1.5, py: 0.5 }}>
+              <Typography variant="caption" color="text.secondary" fontWeight="bold">
+                Organization Admins
               </Typography>
             </Box>
-          </MenuItem>
-        ))}
+            {orgAdmins.map((orgAdmin) => (
+              <MenuItem
+                key={orgAdmin.id}
+                onClick={() => switchRole(orgAdmin)}
+                selected={user?.id === orgAdmin.id}
+              >
+                {getRoleIcon(orgAdmin.role)}
+                <Box>
+                  <Typography variant="body2" fontWeight="medium">
+                    {orgAdmin.name}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {getRoleDisplayName(orgAdmin.role)} - {getOrganizationName(orgAdmin.organization_id)}
+                  </Typography>
+                </Box>
+              </MenuItem>
+            ))}
+          </>
+        )}
+
+        {/* Team Leads */}
+        {teamLeads.length > 0 && (
+          <>
+            <Divider sx={{ my: 0.5 }} />
+            <Box sx={{ px: 1.5, py: 0.5 }}>
+              <Typography variant="caption" color="text.secondary" fontWeight="bold">
+                Team Leads
+              </Typography>
+            </Box>
+            {teamLeads.map((teamLead) => (
+              <MenuItem
+                key={teamLead.id}
+                onClick={() => switchRole(teamLead)}
+                selected={user?.id === teamLead.id}
+              >
+                {getRoleIcon(teamLead.role)}
+                <Box>
+                  <Typography variant="body2" fontWeight="medium">
+                    {teamLead.name}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {getRoleDisplayName(teamLead.role)} - {getOrganizationName(teamLead.organization_id)}
+                  </Typography>
+                </Box>
+              </MenuItem>
+            ))}
+          </>
+        )}
+
+        {/* Regular Users */}
+        {regularUsers.length > 0 && (
+          <>
+            <Divider sx={{ my: 0.5 }} />
+            <Box sx={{ px: 1.5, py: 0.5 }}>
+              <Typography variant="caption" color="text.secondary" fontWeight="bold">
+                Users
+              </Typography>
+            </Box>
+            {regularUsers.map((regularUser) => (
+              <MenuItem
+                key={regularUser.id}
+                onClick={() => switchRole(regularUser)}
+                selected={user?.id === regularUser.id}
+              >
+                {getRoleIcon(regularUser.role)}
+                <Box>
+                  <Typography variant="body2" fontWeight="medium">
+                    {regularUser.name}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {getRoleDisplayName(regularUser.role)} - {getOrganizationName(regularUser.organization_id)}
+                  </Typography>
+                </Box>
+              </MenuItem>
+            ))}
+          </>
+        )}
+
         <Divider />
         <Box sx={{ p: 1.5 }}>
           <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>

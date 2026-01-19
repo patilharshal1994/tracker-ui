@@ -30,7 +30,8 @@ import { Add, Edit, Delete } from '@mui/icons-material';
 import toast from 'react-hot-toast';
 import api from '../config/api';
 import { useAuth } from '../context/AuthContext';
-import { mockApi, mockUsers, mockTeams, USE_MOCK_DATA } from '../data/mockData';
+import { mockApi, mockUsers, mockTeams, mockOrganizations, USE_MOCK_DATA } from '../data/mockData';
+import { canAccess, canCreateRole, ROLES, getRoleDisplayName, getRoleColor } from '../utils/roleHierarchy';
 import React from 'react' 
 const Users = () => {
   const { user } = useAuth();
@@ -44,26 +45,40 @@ const Users = () => {
     email: '',
     password: '',
     role: 'USER',
+    organization_id: '',
     team_id: '',
     is_active: true
   });
   const [teams, setTeams] = useState([]);
+  const [organizations, setOrganizations] = useState([]);
   const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
   useEffect(() => {
-    if (user?.role === 'ADMIN') {
+    if (canAccess(user, 'manage_org_users') || canAccess(user, 'create_team_users')) {
       fetchUsers();
       fetchTeams();
+      if (user?.role === ROLES.SUPER_ADMIN) {
+        fetchOrganizations();
+      }
     }
-  }, []);
+  }, [user]);
 
   const fetchUsers = async () => {
     try {
       setLoading(true);
       if (USE_MOCK_DATA) {
         const response = await mockApi.getUsers();
-        setUsers(response.data);
+        // Filter users based on role
+        let filteredUsers = response.data;
+        if (user?.role === ROLES.ORG_ADMIN && user?.organization_id) {
+          // Org Admin can only see users in their organization
+          filteredUsers = response.data.filter(u => u.organization_id === user.organization_id);
+        } else if (user?.role === ROLES.TEAM_LEAD && user?.team_id) {
+          // Team Lead can only see users in their team
+          filteredUsers = response.data.filter(u => u.team_id === user.team_id);
+        }
+        setUsers(filteredUsers);
       } else {
         const response = await api.get('/users');
         setUsers(response.data);
@@ -79,7 +94,12 @@ const Users = () => {
     try {
       if (USE_MOCK_DATA) {
         const response = await mockApi.getTeams();
-        setTeams(response.data);
+        // Filter teams by organization for Org Admin
+        let filteredTeams = response.data;
+        if (user?.role === ROLES.ORG_ADMIN && user?.organization_id) {
+          filteredTeams = response.data.filter(t => t.organization_id === user.organization_id);
+        }
+        setTeams(filteredTeams);
       } else {
         const response = await api.get('/teams');
         setTeams(response.data);
@@ -89,10 +109,47 @@ const Users = () => {
     }
   };
 
+  const fetchOrganizations = async () => {
+    try {
+      if (USE_MOCK_DATA) {
+        setOrganizations(mockOrganizations);
+      } else {
+        // const response = await api.get('/organizations');
+        // setOrganizations(response.data);
+      }
+    } catch (err) {
+      console.error('Failed to load organizations:', err);
+    }
+  };
+
   const handleCreate = async () => {
     try {
-      await api.post('/users', formData);
-      toast.success(`User "${formData.name}" created successfully! 👤`);
+      // Set organization_id and team_id based on user role
+      const userData = {
+        ...formData,
+        organization_id: user?.role === ROLES.ORG_ADMIN 
+          ? user.organization_id 
+          : user?.role === ROLES.TEAM_LEAD 
+          ? user.organization_id 
+          : formData.organization_id,
+        team_id: user?.role === ROLES.TEAM_LEAD && formData.role === ROLES.USER
+          ? user.team_id
+          : formData.team_id || null
+      };
+
+      if (USE_MOCK_DATA) {
+        const newUser = {
+          id: mockUsers.length + 1,
+          ...userData,
+          is_active: true,
+          created_at: new Date().toISOString()
+        };
+        setUsers([...users, newUser]);
+        toast.success(`User "${formData.name}" created successfully! 👤`);
+      } else {
+        await api.post('/users', userData);
+        toast.success(`User "${formData.name}" created successfully! 👤`);
+      }
       setOpenDialog(false);
       resetForm();
       fetchUsers();
@@ -105,8 +162,20 @@ const Users = () => {
 
   const handleUpdate = async () => {
     try {
-      await api.put(`/users/${editingUser.id}`, formData);
-      toast.success(`User "${formData.name}" updated successfully! ✏️`);
+      const userData = {
+        ...formData,
+        organization_id: user?.role === ROLES.ORG_ADMIN 
+          ? user.organization_id 
+          : formData.organization_id
+      };
+
+      if (USE_MOCK_DATA) {
+        setUsers(users.map(u => u.id === editingUser.id ? { ...u, ...userData } : u));
+        toast.success(`User "${formData.name}" updated successfully! ✏️`);
+      } else {
+        await api.put(`/users/${editingUser.id}`, userData);
+        toast.success(`User "${formData.name}" updated successfully! ✏️`);
+      }
       setOpenDialog(false);
       resetForm();
       fetchUsers();
@@ -132,12 +201,19 @@ const Users = () => {
   };
 
   const resetForm = () => {
+    // Set default organization_id based on user role
+    let defaultOrgId = '';
+    if (user?.role === ROLES.ORG_ADMIN) {
+      defaultOrgId = user.organization_id || '';
+    }
+
     setFormData({
       name: '',
       email: '',
       password: '',
-      role: 'USER',
-      team_id: '',
+      role: ROLES.USER,
+      organization_id: defaultOrgId,
+      team_id: user?.role === ROLES.TEAM_LEAD ? (user.team_id || '') : '',
       is_active: true
     });
     setEditingUser(null);
@@ -150,14 +226,39 @@ const Users = () => {
       email: userData.email,
       password: '',
       role: userData.role,
+      organization_id: userData.organization_id || '',
       team_id: userData.team_id || '',
       is_active: userData.is_active
     });
     setOpenDialog(true);
   };
 
-  if (user?.role !== 'ADMIN') {
-    return <Alert severity="error">Access denied. Admin only.</Alert>;
+  // Get available roles based on current user's role
+  const getAvailableRoles = () => {
+    if (!user) return [];
+    
+    const allRoles = [
+      { value: ROLES.SUPER_ADMIN, label: getRoleDisplayName(ROLES.SUPER_ADMIN) },
+      { value: ROLES.ORG_ADMIN, label: getRoleDisplayName(ROLES.ORG_ADMIN) },
+      { value: ROLES.TEAM_LEAD, label: getRoleDisplayName(ROLES.TEAM_LEAD) },
+      { value: ROLES.USER, label: getRoleDisplayName(ROLES.USER) }
+    ];
+
+    // Filter roles based on what current user can create
+    return allRoles.filter(role => canCreateRole(user, role.value));
+  };
+
+  // Get available teams based on current user's role
+  const getAvailableTeams = () => {
+    if (user?.role === ROLES.TEAM_LEAD) {
+      // Team Lead can only assign to their own team
+      return teams.filter(t => t.id === user.team_id);
+    }
+    return teams;
+  };
+
+  if (!canAccess(user, 'manage_org_users') && !canAccess(user, 'create_team_users')) {
+    return <Alert severity="error">Access denied. You don't have permission to manage users.</Alert>;
   }
 
   if (loading) {
@@ -191,13 +292,17 @@ const Users = () => {
           <Box display="flex" alignItems="center" gap={2} mb={1}>
             <Typography variant="h4">User Management</Typography>
             <Chip
-              label="ADMIN ONLY"
-              color="primary"
+              label={user?.role === ROLES.SUPER_ADMIN ? 'Super Admin' : user?.role === ROLES.ORG_ADMIN ? 'Org Admin' : 'Team Lead'}
+              color={user?.role === ROLES.SUPER_ADMIN ? 'error' : user?.role === ROLES.ORG_ADMIN ? 'primary' : 'secondary'}
               size="small"
             />
           </Box>
           <Typography variant="body2" color="text.secondary">
-            Create, edit, and manage user accounts and permissions
+            {user?.role === ROLES.SUPER_ADMIN 
+              ? 'Create, edit, and manage all users across all organizations'
+              : user?.role === ROLES.ORG_ADMIN
+              ? 'Create, edit, and manage users, team leads, and teams within your organization'
+              : 'Create and manage users in your team'}
           </Typography>
         </Box>
         <Button
@@ -225,42 +330,58 @@ const Users = () => {
               <TableCell>Name</TableCell>
               <TableCell>Email</TableCell>
               <TableCell>Role</TableCell>
+              {user?.role === ROLES.SUPER_ADMIN && <TableCell>Organization</TableCell>}
               <TableCell>Team</TableCell>
               <TableCell>Status</TableCell>
               <TableCell>Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {paginatedUsers.map((u) => (
-              <TableRow key={u.id} hover>
-                <TableCell>{u.name}</TableCell>
-                <TableCell>{u.email}</TableCell>
-                <TableCell>
-                  <Chip label={u.role} color={u.role === 'ADMIN' ? 'primary' : 'default'} size="small" />
-                </TableCell>
-                <TableCell>{u.team_id ? `Team ${u.team_id}` : '-'}</TableCell>
-                <TableCell>
-                  <Chip
-                    label={u.is_active ? 'Active' : 'Inactive'}
-                    color={u.is_active ? 'success' : 'default'}
-                    size="small"
-                  />
-                </TableCell>
-                <TableCell>
-                  <IconButton size="small" onClick={() => openEditDialog(u)}>
-                    <Edit />
-                  </IconButton>
-                  <IconButton size="small" onClick={() => handleDelete(u.id)}>
-                    <Delete />
-                  </IconButton>
-                </TableCell>
-              </TableRow>
-            ))}
+            {paginatedUsers.map((u) => {
+              const userTeam = teams.find(t => t.id === u.team_id);
+              const userOrg = mockOrganizations.find(o => o.id === u.organization_id);
+              return (
+                <TableRow key={u.id} hover>
+                  <TableCell>{u.name}</TableCell>
+                  <TableCell>{u.email}</TableCell>
+                  <TableCell>
+                    <Chip 
+                      label={getRoleDisplayName(u.role)} 
+                      color={getRoleColor(u.role)} 
+                      size="small" 
+                    />
+                  </TableCell>
+                  {user?.role === ROLES.SUPER_ADMIN && (
+                    <TableCell>
+                      {userOrg ? userOrg.name : '-'}
+                    </TableCell>
+                  )}
+                  <TableCell>{userTeam ? userTeam.name : '-'}</TableCell>
+                  <TableCell>
+                    <Chip
+                      label={u.is_active ? 'Active' : 'Inactive'}
+                      color={u.is_active ? 'success' : 'default'}
+                      size="small"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <IconButton size="small" onClick={() => openEditDialog(u)}>
+                      <Edit />
+                    </IconButton>
+                    {(user?.role === ROLES.SUPER_ADMIN || user?.role === ROLES.ORG_ADMIN) && (
+                      <IconButton size="small" onClick={() => handleDelete(u.id)}>
+                        <Delete />
+                      </IconButton>
+                    )}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
           {users.length > 0 && (
             <TableFooter>
               <TableRow>
-                <TableCell colSpan={6}>
+                <TableCell colSpan={user?.role === ROLES.SUPER_ADMIN ? 7 : 6}>
                   <Box display="flex" justifyContent="space-between" alignItems="center" sx={{ py: 2 }}>
                     <Box display="flex" alignItems="center" gap={2}>
                       <Typography variant="body2" color="text.secondary">
@@ -326,6 +447,23 @@ const Users = () => {
             required={!editingUser}
             helperText={editingUser ? 'Leave empty to keep current password' : ''}
           />
+          {user?.role === ROLES.SUPER_ADMIN && (
+            <FormControl fullWidth margin="normal">
+              <InputLabel>Organization</InputLabel>
+              <Select
+                value={formData.organization_id}
+                label="Organization"
+                onChange={(e) => setFormData({ ...formData, organization_id: e.target.value })}
+              >
+                <MenuItem value="">Select Organization</MenuItem>
+                {organizations.map((org) => (
+                  <MenuItem key={org.id} value={org.id}>
+                    {org.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
           <FormControl fullWidth margin="normal">
             <InputLabel>Role</InputLabel>
             <Select
@@ -333,8 +471,11 @@ const Users = () => {
               label="Role"
               onChange={(e) => setFormData({ ...formData, role: e.target.value })}
             >
-              <MenuItem value="USER">User</MenuItem>
-              <MenuItem value="ADMIN">Admin</MenuItem>
+              {getAvailableRoles().map((role) => (
+                <MenuItem key={role.value} value={role.value}>
+                  {role.label}
+                </MenuItem>
+              ))}
             </Select>
           </FormControl>
           <FormControl fullWidth margin="normal">
@@ -343,14 +484,20 @@ const Users = () => {
               value={formData.team_id}
               label="Team"
               onChange={(e) => setFormData({ ...formData, team_id: e.target.value })}
+              disabled={user?.role === ROLES.TEAM_LEAD && formData.role === ROLES.USER}
             >
               <MenuItem value="">None</MenuItem>
-              {teams.map((team) => (
+              {getAvailableTeams().map((team) => (
                 <MenuItem key={team.id} value={team.id}>
                   {team.name}
                 </MenuItem>
               ))}
             </Select>
+            {user?.role === ROLES.TEAM_LEAD && formData.role === ROLES.USER && (
+              <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
+                User will be automatically assigned to your team
+              </Typography>
+            )}
           </FormControl>
         </DialogContent>
         <DialogActions>

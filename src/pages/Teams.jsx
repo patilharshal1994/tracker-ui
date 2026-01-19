@@ -30,7 +30,8 @@ import { Add, Edit, Delete, Visibility } from '@mui/icons-material';
 import toast from 'react-hot-toast';
 import api from '../config/api';
 import { useAuth } from '../context/AuthContext';
-import { mockApi, mockTeams, USE_MOCK_DATA } from '../data/mockData';
+import { mockApi, mockTeams, mockOrganizations, USE_MOCK_DATA } from '../data/mockData';
+import { canAccess, ROLES, getRoleDisplayName, getRoleColor } from '../utils/roleHierarchy';
 import React from 'react' 
 const Teams = () => {
   const { user } = useAuth();
@@ -39,24 +40,33 @@ const Teams = () => {
   const [error, setError] = useState('');
   const [openDialog, setOpenDialog] = useState(false);
   const [editingTeam, setEditingTeam] = useState(null);
-  const [formData, setFormData] = useState({ name: '' });
+  const [formData, setFormData] = useState({ name: '', organization_id: '' });
+  const [organizations, setOrganizations] = useState([]);
   const [selectedTeam, setSelectedTeam] = useState(null);
   const [teamDetails, setTeamDetails] = useState(null);
   const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
   useEffect(() => {
-    if (user?.role === 'ADMIN') {
+    if (canAccess(user, 'manage_org_teams')) {
       fetchTeams();
+      if (user?.role === ROLES.SUPER_ADMIN) {
+        fetchOrganizations();
+      }
     }
-  }, []);
+  }, [user]);
 
   const fetchTeams = async () => {
     try {
       setLoading(true);
       if (USE_MOCK_DATA) {
         const response = await mockApi.getTeams();
-        setTeams(response.data);
+        // Filter teams by organization for Org Admin
+        let filteredTeams = response.data;
+        if (user?.role === ROLES.ORG_ADMIN && user?.organization_id) {
+          filteredTeams = response.data.filter(t => t.organization_id === user.organization_id);
+        }
+        setTeams(filteredTeams);
       } else {
         const response = await api.get('/teams');
         setTeams(response.data);
@@ -65,6 +75,19 @@ const Teams = () => {
       setError(err.response?.data?.error || 'Failed to load teams');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchOrganizations = async () => {
+    try {
+      if (USE_MOCK_DATA) {
+        setOrganizations(mockOrganizations);
+      } else {
+        // const response = await api.get('/organizations');
+        // setOrganizations(response.data);
+      }
+    } catch (err) {
+      console.error('Failed to load organizations:', err);
     }
   };
 
@@ -86,11 +109,27 @@ const Teams = () => {
 
   const handleCreate = async () => {
     try {
-      await api.post('/teams', formData);
-      toast.success(`Team "${formData.name}" created successfully! 👥`);
+      // Set organization_id based on user role
+      const teamData = {
+        ...formData,
+        organization_id: user?.role === ROLES.ORG_ADMIN ? user.organization_id : formData.organization_id
+      };
+      
+      if (USE_MOCK_DATA) {
+        const newTeam = {
+          id: teams.length + 1,
+          ...teamData,
+          created_at: new Date().toISOString(),
+          members: []
+        };
+        setTeams([...teams, newTeam]);
+        toast.success(`Team "${formData.name}" created successfully! 👥`);
+      } else {
+        await api.post('/teams', teamData);
+        toast.success(`Team "${formData.name}" created successfully! 👥`);
+      }
       setOpenDialog(false);
-      setFormData({ name: '' });
-      setEditingTeam(null);
+      resetForm();
       fetchTeams();
     } catch (err) {
       const errorMsg = err.response?.data?.error || 'Failed to create team';
@@ -101,11 +140,20 @@ const Teams = () => {
 
   const handleUpdate = async () => {
     try {
-      await api.put(`/teams/${editingTeam.id}`, formData);
-      toast.success(`Team "${formData.name}" updated successfully! ✏️`);
+      const teamData = {
+        ...formData,
+        organization_id: user?.role === ROLES.ORG_ADMIN ? user.organization_id : formData.organization_id
+      };
+      
+      if (USE_MOCK_DATA) {
+        setTeams(teams.map(t => t.id === editingTeam.id ? { ...t, ...teamData } : t));
+        toast.success(`Team "${formData.name}" updated successfully! ✏️`);
+      } else {
+        await api.put(`/teams/${editingTeam.id}`, teamData);
+        toast.success(`Team "${formData.name}" updated successfully! ✏️`);
+      }
       setOpenDialog(false);
-      setFormData({ name: '' });
-      setEditingTeam(null);
+      resetForm();
       fetchTeams();
       if (selectedTeam === editingTeam.id) {
         fetchTeamDetails(editingTeam.id);
@@ -135,14 +183,25 @@ const Teams = () => {
     }
   };
 
+  const resetForm = () => {
+    setFormData({ 
+      name: '', 
+      organization_id: user?.role === ROLES.ORG_ADMIN ? (user.organization_id || '') : '' 
+    });
+    setEditingTeam(null);
+  };
+
   const openEditDialog = (team) => {
     setEditingTeam(team);
-    setFormData({ name: team.name });
+    setFormData({ 
+      name: team.name,
+      organization_id: team.organization_id || ''
+    });
     setOpenDialog(true);
   };
 
-  if (user?.role !== 'ADMIN') {
-    return <Alert severity="error">Access denied. Admin only.</Alert>;
+  if (!canAccess(user, 'manage_org_teams')) {
+    return <Alert severity="error">Access denied. You don't have permission to manage teams.</Alert>;
   }
 
   if (loading) {
@@ -176,26 +235,29 @@ const Teams = () => {
           <Box display="flex" alignItems="center" gap={2} mb={1}>
             <Typography variant="h4">Team Management</Typography>
             <Chip
-              label="ADMIN ONLY"
-              color="primary"
+              label={user?.role === ROLES.SUPER_ADMIN ? 'Super Admin' : 'Org Admin'}
+              color={user?.role === ROLES.SUPER_ADMIN ? 'error' : 'primary'}
               size="small"
             />
           </Box>
           <Typography variant="body2" color="text.secondary">
-            Organize users into teams and assign them to projects
+            {user?.role === ROLES.SUPER_ADMIN 
+              ? 'Organize users into teams across all organizations'
+              : 'Organize users into teams within your organization'}
           </Typography>
         </Box>
-        <Button
-          variant="contained"
-          startIcon={<Add />}
-          onClick={() => {
-            setEditingTeam(null);
-            setFormData({ name: '' });
-            setOpenDialog(true);
-          }}
-        >
-          New Team
-        </Button>
+        {canAccess(user, 'create_teams') && (
+          <Button
+            variant="contained"
+            startIcon={<Add />}
+            onClick={() => {
+              resetForm();
+              setOpenDialog(true);
+            }}
+          >
+            New Team
+          </Button>
+        )}
       </Box>
 
       {error && (
@@ -209,6 +271,7 @@ const Teams = () => {
           <TableHead>
             <TableRow>
               <TableCell>Name</TableCell>
+              {user?.role === ROLES.SUPER_ADMIN && <TableCell>Organization</TableCell>}
               <TableCell>Created</TableCell>
               <TableCell>Actions</TableCell>
             </TableRow>
@@ -221,34 +284,44 @@ const Teams = () => {
                 </TableCell>
               </TableRow>
             ) : (
-              paginatedTeams.map((team) => (
-                <TableRow key={team.id} hover>
-                  <TableCell>{team.name}</TableCell>
-                  <TableCell>
-                    {new Date(team.created_at).toLocaleDateString()}
-                  </TableCell>
-                  <TableCell>
-                    <IconButton
-                      size="small"
-                      onClick={() => fetchTeamDetails(team.id)}
-                    >
-                      <Visibility />
-                    </IconButton>
-                    <IconButton size="small" onClick={() => openEditDialog(team)}>
-                      <Edit />
-                    </IconButton>
-                    <IconButton size="small" onClick={() => handleDelete(team.id)}>
-                      <Delete />
-                    </IconButton>
-                  </TableCell>
-                </TableRow>
-              ))
+              paginatedTeams.map((team) => {
+                const teamOrg = mockOrganizations.find(o => o.id === team.organization_id);
+                return (
+                  <TableRow key={team.id} hover>
+                    <TableCell>{team.name}</TableCell>
+                    {user?.role === ROLES.SUPER_ADMIN && (
+                      <TableCell>{teamOrg ? teamOrg.name : '-'}</TableCell>
+                    )}
+                    <TableCell>
+                      {new Date(team.created_at).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell>
+                      <IconButton
+                        size="small"
+                        onClick={() => fetchTeamDetails(team.id)}
+                      >
+                        <Visibility />
+                      </IconButton>
+                      {(user?.role === ROLES.SUPER_ADMIN || user?.role === ROLES.ORG_ADMIN) && (
+                        <>
+                          <IconButton size="small" onClick={() => openEditDialog(team)}>
+                            <Edit />
+                          </IconButton>
+                          <IconButton size="small" onClick={() => handleDelete(team.id)}>
+                            <Delete />
+                          </IconButton>
+                        </>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
           {teams.length > 0 && (
             <TableFooter>
               <TableRow>
-                <TableCell colSpan={3}>
+                <TableCell colSpan={user?.role === ROLES.SUPER_ADMIN ? 4 : 3}>
                   <Box display="flex" justifyContent="space-between" alignItems="center" sx={{ py: 2 }}>
                     <Box display="flex" alignItems="center" gap={2}>
                       <Typography variant="body2" color="text.secondary">
@@ -321,11 +394,29 @@ const Teams = () => {
       <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth>
         <DialogTitle>{editingTeam ? 'Edit Team' : 'Create Team'}</DialogTitle>
         <DialogContent>
+          {user?.role === ROLES.SUPER_ADMIN && (
+            <FormControl fullWidth margin="normal">
+              <InputLabel>Organization</InputLabel>
+              <Select
+                value={formData.organization_id}
+                label="Organization"
+                onChange={(e) => setFormData({ ...formData, organization_id: e.target.value })}
+                required
+              >
+                <MenuItem value="">Select Organization</MenuItem>
+                {organizations.map((org) => (
+                  <MenuItem key={org.id} value={org.id}>
+                    {org.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          )}
           <TextField
             fullWidth
             label="Team Name"
             value={formData.name}
-            onChange={(e) => setFormData({ name: e.target.value })}
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
             margin="normal"
             required
           />
@@ -335,7 +426,7 @@ const Teams = () => {
           <Button
             onClick={editingTeam ? handleUpdate : handleCreate}
             variant="contained"
-            disabled={!formData.name}
+            disabled={!formData.name || (user?.role === ROLES.SUPER_ADMIN && !formData.organization_id)}
           >
             {editingTeam ? 'Update' : 'Create'}
           </Button>

@@ -28,13 +28,15 @@ import {
   ChevronRight,
   Brightness4,
   Brightness7,
-  Palette
+  Palette,
+  Business
 } from '@mui/icons-material';
 import toast from 'react-hot-toast';
 import { Chip, IconButton, Tooltip } from '@mui/material';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { mockUser, USE_MOCK_DATA } from '../data/mockData';
+import { getMenuItems, getRoleDisplayName, getRoleColor, ROLES } from '../utils/roleHierarchy';
 import NotificationCenter from './NotificationCenter';
 import React, { useEffect, useRef, useState } from 'react'
 const drawerWidth = 240;
@@ -69,18 +71,22 @@ const Layout = ({ children }) => {
     }
   }, [user, location.pathname]);
 
-  const menuItems = [
-    { text: 'Dashboard', icon: <Dashboard />, path: '/dashboard' },
-    { text: 'Projects', icon: <Folder />, path: '/projects' },
-    { text: 'Tickets', icon: <Assignment />, path: '/tickets' }
-  ];
+  // Map icon names to components
+  const iconMap = {
+    Dashboard: <Dashboard />,
+    Folder: <Folder />,
+    Assignment: <Assignment />,
+    People: <People />,
+    Groups: <Groups />,
+    Business: <Business />
+  };
 
-  if (user?.role === 'ADMIN') {
-    menuItems.push(
-      { text: 'Users', icon: <People />, path: '/users' },
-      { text: 'Teams', icon: <Groups />, path: '/teams' }
-    );
-  }
+  // Get menu items based on role hierarchy
+  const menuItemsData = user ? getMenuItems(user) : [];
+  const menuItems = menuItemsData.map(item => ({
+    ...item,
+    icon: iconMap[item.icon] || <Dashboard />
+  }));
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
@@ -282,16 +288,16 @@ const Layout = ({ children }) => {
                 {user?.name}
               </Typography>
               <Chip
-                label={user?.role || 'USER'}
+                label={user ? getRoleDisplayName(user.role) : 'USER'}
                 size="small"
-                color={user?.role === 'ADMIN' ? 'primary' : 'default'}
+                color={user ? getRoleColor(user.role) : 'default'}
                 sx={{ height: 18, fontSize: '0.65rem', mt: 0.5 }}
               />
             </Box>
             <Avatar
-              sx={{ 
-                bgcolor: user?.role === 'ADMIN' ? 'primary.main' : 'secondary.main', 
-                cursor: 'pointer' 
+              sx={{
+                bgcolor: user ? (user.role === ROLES.SUPER_ADMIN ? 'error.main' : user.role === ROLES.ORG_ADMIN ? 'primary.main' : user.role === ROLES.TEAM_LEAD ? 'secondary.main' : 'default') : 'default',
+                cursor: 'pointer'
               }}
               onClick={handleMenuClick}
             >
