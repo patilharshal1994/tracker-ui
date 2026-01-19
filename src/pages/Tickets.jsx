@@ -76,6 +76,7 @@ const Tickets = () => {
     description: '',
     priority: 'MEDIUM',
     assignee_id: '',
+    module: '',
     tags: []
   });
   const [users, setUsers] = useState([]);
@@ -197,6 +198,7 @@ const Tickets = () => {
         description: '',
         priority: 'MEDIUM',
         assignee_id: '',
+        module: '',
         tags: []
       });
       fetchTickets();
@@ -1322,6 +1324,32 @@ const Tickets = () => {
               <MenuItem value="LOW">Low</MenuItem>
               <MenuItem value="MEDIUM">Medium</MenuItem>
               <MenuItem value="HIGH">High</MenuItem>
+            </Select>
+          </FormControl>
+          <FormControl fullWidth margin="normal">
+            <InputLabel>Module</InputLabel>
+            <Select
+              value={formData.module}
+              label="Module"
+              onChange={(e) => setFormData({ ...formData, module: e.target.value })}
+            >
+              <MenuItem value="">Select Module</MenuItem>
+              <MenuItem value="AUTHENTICATION">Authentication</MenuItem>
+              <MenuItem value="USER_MANAGEMENT">User Management</MenuItem>
+              <MenuItem value="DASHBOARD">Dashboard</MenuItem>
+              <MenuItem value="REPORTING">Reporting</MenuItem>
+              <MenuItem value="INTEGRATION">Integration</MenuItem>
+              <MenuItem value="API">API</MenuItem>
+              <MenuItem value="DATABASE">Database</MenuItem>
+              <MenuItem value="FRONTEND">Frontend</MenuItem>
+              <MenuItem value="BACKEND">Backend</MenuItem>
+              <MenuItem value="UI_UX">UI/UX</MenuItem>
+              <MenuItem value="SECURITY">Security</MenuItem>
+              <MenuItem value="PERFORMANCE">Performance</MenuItem>
+              <MenuItem value="TESTING">Testing</MenuItem>
+              <MenuItem value="DEPLOYMENT">Deployment</MenuItem>
+              <MenuItem value="DOCUMENTATION">Documentation</MenuItem>
+              <MenuItem value="OTHER">Other</MenuItem>
             </Select>
           </FormControl>
           {user.role === 'ADMIN' && (

@@ -80,7 +80,8 @@ const TicketDetail = () => {
         setEditData({
           status: response.data.status,
           priority: response.data.priority,
-          assignee_id: response.data.assignee_id || ''
+          assignee_id: response.data.assignee_id || '',
+          module: response.data.module || ''
         });
       } else {
         const response = await api.get(`/tickets/${ticketId}`);
@@ -92,7 +93,8 @@ const TicketDetail = () => {
         setEditData({
           status: response.data.status,
           priority: response.data.priority,
-          assignee_id: response.data.assignee_id || ''
+          assignee_id: response.data.assignee_id || '',
+          module: response.data.module || ''
         });
       }
     } catch (err) {
@@ -530,6 +532,19 @@ const TicketDetail = () => {
                   <Typography variant="body2">{ticket.branch_name}</Typography>
                 </Box>
               )}
+              {ticket.module && (
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="caption" color="text.secondary" fontWeight="medium">
+                    Module
+                  </Typography>
+                  <Chip 
+                    label={ticket.module.replace('_', ' ')} 
+                    size="small" 
+                    sx={{ mt: 0.5, textTransform: 'capitalize' }}
+                    color="info"
+                  />
+                </Box>
+              )}
             </Paper>
 
             {/* Watchers */}
@@ -603,6 +618,32 @@ const TicketDetail = () => {
               <MenuItem value="LOW">Low</MenuItem>
               <MenuItem value="MEDIUM">Medium</MenuItem>
               <MenuItem value="HIGH">High</MenuItem>
+            </Select>
+          </FormControl>
+          <FormControl fullWidth margin="normal">
+            <InputLabel>Module</InputLabel>
+            <Select
+              value={editData.module || ''}
+              label="Module"
+              onChange={(e) => setEditData({ ...editData, module: e.target.value })}
+            >
+              <MenuItem value="">Select Module</MenuItem>
+              <MenuItem value="AUTHENTICATION">Authentication</MenuItem>
+              <MenuItem value="USER_MANAGEMENT">User Management</MenuItem>
+              <MenuItem value="DASHBOARD">Dashboard</MenuItem>
+              <MenuItem value="REPORTING">Reporting</MenuItem>
+              <MenuItem value="INTEGRATION">Integration</MenuItem>
+              <MenuItem value="API">API</MenuItem>
+              <MenuItem value="DATABASE">Database</MenuItem>
+              <MenuItem value="FRONTEND">Frontend</MenuItem>
+              <MenuItem value="BACKEND">Backend</MenuItem>
+              <MenuItem value="UI_UX">UI/UX</MenuItem>
+              <MenuItem value="SECURITY">Security</MenuItem>
+              <MenuItem value="PERFORMANCE">Performance</MenuItem>
+              <MenuItem value="TESTING">Testing</MenuItem>
+              <MenuItem value="DEPLOYMENT">Deployment</MenuItem>
+              <MenuItem value="DOCUMENTATION">Documentation</MenuItem>
+              <MenuItem value="OTHER">Other</MenuItem>
             </Select>
           </FormControl>
         </DialogContent>
