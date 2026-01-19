@@ -1,8 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { Box, Typography, Chip, Autocomplete, TextField } from '@mui/material';
 import { Person } from '@mui/icons-material';
 import RichTextEditor from './RichTextEditor';
-import UserMentionSelector from './UserMentionSelector';
 import React from 'react';
 
 const MentionableRichTextEditor = ({ 
@@ -18,78 +17,22 @@ const MentionableRichTextEditor = ({
 }) => {
   const [editorValue, setEditorValue] = useState(value || '');
   const [mentionedUsers, setMentionedUsers] = useState([]);
-  const [showMentionSelector, setShowMentionSelector] = useState(false);
-  const [mentionQuery, setMentionQuery] = useState('');
-  const editorRef = useRef(null);
-  const mentionAnchorRef = useRef(null);
 
   useEffect(() => {
     setEditorValue(value || '');
-    // Extract mentions from HTML
-    extractMentions(value || '');
+    // Don't extract mentions from HTML - mentions are only in the dropdown
   }, [value]);
-
-  const extractMentions = (html) => {
-    if (!html) {
-      setMentionedUsers([]);
-      return;
-    }
-
-    // Extract user mentions from HTML (format: <span data-user-id="1" data-user-name="John Doe">@John Doe</span>)
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, 'text/html');
-    const mentionSpans = doc.querySelectorAll('span[data-user-id]');
-    const mentions = Array.from(mentionSpans).map(span => ({
-      id: parseInt(span.getAttribute('data-user-id')),
-      name: span.getAttribute('data-user-name')
-    }));
-    setMentionedUsers(mentions);
-    if (onMentionsChange) {
-      onMentionsChange(mentions.map(m => m.id));
-    }
-  };
 
   const handleEditorChange = (event) => {
     const newValue = event.target.value;
     setEditorValue(newValue);
-    extractMentions(newValue);
     
+    // Don't extract mentions from editor content - keep editor clean
     if (onChange) {
       onChange(event);
     }
   };
 
-  const handleUserSelect = (user) => {
-    // Create mention HTML
-    const mentionHtml = `<span data-user-id="${user.id}" data-user-name="${user.name}" style="background-color: rgba(25, 118, 210, 0.1); color: #1976d2; padding: 2px 6px; border-radius: 4px; font-weight: 500;">@${user.name}</span> `;
-    
-    // Insert mention into editor
-    const currentValue = editorValue || '';
-    const beforeMention = currentValue.substring(0, currentValue.lastIndexOf('@'));
-    const newValue = beforeMention + mentionHtml;
-    
-    setEditorValue(newValue);
-    extractMentions(newValue);
-    
-    if (onChange) {
-      const syntheticEvent = {
-        target: {
-          value: newValue,
-          name: 'description'
-        }
-      };
-      onChange(syntheticEvent);
-    }
-    
-    setShowMentionSelector(false);
-    setMentionQuery('');
-  };
-
-  const handleMentionInput = (e) => {
-    // This is a simplified approach - in a real implementation, 
-    // you'd need to detect @ in the CKEditor content
-    // For now, we'll use a separate input field for mentions
-  };
 
   return (
     <Box>
@@ -112,60 +55,21 @@ const MentionableRichTextEditor = ({
           multiple
           options={users}
           getOptionLabel={(option) => option.name}
-          value={mentionedUsers.map(m => users.find(u => u.id === m.id)).filter(Boolean)}
+          value={mentionedUsers.map(m => {
+            const user = users.find(u => u.id === m.id);
+            return user || { id: m.id, name: m.name };
+          }).filter(Boolean)}
           onChange={(event, newValue) => {
+            // Only update the mentioned users list - don't modify editor content
             const newMentions = newValue.map(u => ({ id: u.id, name: u.name }));
             setMentionedUsers(newMentions);
             
-            // Update editor content with mentions
-            let newContent = editorValue || '';
-            
-            // Remove old mentions from HTML
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(newContent, 'text/html');
-            const oldMentions = doc.querySelectorAll('span[data-user-id]');
-            oldMentions.forEach(span => {
-              const spanHtml = span.outerHTML;
-              // Use a more robust replacement that handles the full HTML structure
-              newContent = newContent.replace(new RegExp(spanHtml.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), '');
-            });
-            
-            // Clean up any leftover mention text
-            newContent = newContent.replace(/@\w+/g, '');
-            
-            // Get current user IDs that are already in content
-            const existingUserIds = new Set();
-            const tempDoc = parser.parseFromString(newContent, 'text/html');
-            tempDoc.querySelectorAll('span[data-user-id]').forEach(span => {
-              existingUserIds.add(parseInt(span.getAttribute('data-user-id')));
-            });
-            
-            // Add new mentions that aren't already in the content
-            const mentionsToAdd = newValue.filter(u => !existingUserIds.has(u.id));
-            if (mentionsToAdd.length > 0) {
-              const mentionsHtml = mentionsToAdd.map(user => 
-                `<span data-user-id="${user.id}" data-user-name="${user.name}" style="background-color: rgba(25, 118, 210, 0.1); color: #1976d2; padding: 2px 6px; border-radius: 4px; font-weight: 500; display: inline-block; margin-right: 4px;">@${user.name}</span>`
-              ).join(' ');
-              // Append mentions at the end of content
-              newContent = (newContent.trim() + ' ' + mentionsHtml).trim();
-            }
-            
-            setEditorValue(newContent);
-            extractMentions(newContent);
-            
-            if (onChange) {
-              const syntheticEvent = {
-                target: {
-                  value: newContent,
-                  name: 'description'
-                }
-              };
-              onChange(syntheticEvent);
-            }
-            
+            // Notify parent component about mentioned user IDs
             if (onMentionsChange) {
               onMentionsChange(newValue.map(u => u.id));
             }
+            
+            // Don't modify editorValue - keep editor content clean
           }}
           renderInput={(params) => (
             <TextField

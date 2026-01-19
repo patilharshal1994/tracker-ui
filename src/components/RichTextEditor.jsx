@@ -97,6 +97,15 @@ const RichTextEditor = ({ value, onChange, label, error, helperText, disabled, m
         .ck-placeholder::before {
           color: rgba(255, 255, 255, 0.5) !important;
         }
+        .ck-editor__editable span[data-user-id] {
+          background-color: rgba(25, 118, 210, 0.2) !important;
+          color: #64b5f6 !important;
+          padding: 2px 6px !important;
+          border-radius: 4px !important;
+          font-weight: 500 !important;
+          display: inline-block !important;
+          margin-right: 4px !important;
+        }
       `;
     } else {
       if (style) {
@@ -196,6 +205,16 @@ const RichTextEditor = ({ value, onChange, label, error, helperText, disabled, m
           },
           '& .ck-toolbar__separator': {
             backgroundColor: mode === 'dark' ? '#424242' : '#e0e0e0'
+          },
+          '& .ck-editor__editable span[data-user-id]': {
+            backgroundColor: mode === 'dark' ? 'rgba(25, 118, 210, 0.2)' : 'rgba(25, 118, 210, 0.1)',
+            color: mode === 'dark' ? '#64b5f6' : '#1976d2',
+            padding: '2px 6px',
+            borderRadius: '4px',
+            fontWeight: 500,
+            display: 'inline-block',
+            marginRight: '4px',
+            marginBottom: '2px'
           }
         }}
       >
