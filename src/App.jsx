@@ -11,6 +11,7 @@ import Tickets from './pages/Tickets';
 import TicketDetail from './pages/TicketDetail';
 import Users from './pages/Users';
 import Teams from './pages/Teams';
+import Profile from './pages/Profile';
 import React from 'react'
 
 const AppRoutes = () => {
@@ -76,6 +77,14 @@ const AppRoutes = () => {
         element={
           <Layout>
             <Teams />
+          </Layout>
+        }
+      />
+      <Route
+        path="/profile"
+        element={
+          <Layout>
+            <Profile />
           </Layout>
         }
       />

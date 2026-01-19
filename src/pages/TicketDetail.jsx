@@ -28,9 +28,9 @@ import { ArrowBack, Edit, AttachFile, ContentCopy, Share } from '@mui/icons-mate
 import toast from 'react-hot-toast';
 import api from '../config/api';
 import { useAuth } from '../context/AuthContext';
-import { mockApi, USE_MOCK_DATA } from '../data/mockData';
+import { mockApi, USE_MOCK_DATA, mockUsers } from '../data/mockData';
 import { decodeId, encodeId } from '../utils/idEncoder';
-import RichTextEditor from '../components/RichTextEditor';
+import MentionableRichTextEditor from '../components/MentionableRichTextEditor';
 import TicketActivityLog from '../components/TicketActivityLog';
 import FileAttachment from '../components/FileAttachment';
 import TicketRelationships from '../components/TicketRelationships';
@@ -56,15 +56,31 @@ const TicketDetail = () => {
   const [relationships, setRelationships] = useState([]);
   const [timeLogs, setTimeLogs] = useState([]);
   const [watchers, setWatchers] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [commentMentions, setCommentMentions] = useState([]);
 
   useEffect(() => {
     if (ticketId) {
       fetchTicket();
+      fetchUsers();
     } else {
       setError('Invalid ticket ID');
       setLoading(false);
     }
   }, [ticketId]);
+
+  const fetchUsers = async () => {
+    try {
+      if (USE_MOCK_DATA) {
+        setUsers(mockUsers);
+      } else {
+        const response = await api.get('/users');
+        setUsers(response.data);
+      }
+    } catch (err) {
+      console.error('Failed to load users:', err);
+    }
+  };
 
   const fetchTicket = async () => {
     try {
@@ -115,6 +131,9 @@ const TicketDetail = () => {
       if (commentFile) {
         formData.append('attachment', commentFile);
       }
+      if (commentMentions.length > 0) {
+        formData.append('mentioned_users', JSON.stringify(commentMentions));
+      }
 
       await api.post('/comments', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
@@ -123,6 +142,7 @@ const TicketDetail = () => {
       toast.success('Comment added successfully! 💬');
       setCommentText('');
       setCommentFile(null);
+      setCommentMentions([]);
       fetchTicket();
     } catch (err) {
       const errorMsg = err.response?.data?.error || 'Failed to add comment';
@@ -439,11 +459,13 @@ const TicketDetail = () => {
             >
               <form onSubmit={handleCommentSubmit}>
                 <Box sx={{ mb: 1.5 }}>
-                  <RichTextEditor
+                  <MentionableRichTextEditor
                     value={commentText}
                     onChange={(e) => setCommentText(e.target.value)}
+                    onMentionsChange={(userIds) => setCommentMentions(userIds)}
                     label="Add a comment"
                     minHeight={120}
+                    users={users}
                   />
                 </Box>
                 <Box display="flex" justifyContent="space-between" alignItems="center" mt={1.5}>

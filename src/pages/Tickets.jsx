@@ -37,7 +37,7 @@ import api from '../config/api';
 import { useAuth } from '../context/AuthContext';
 import { mockApi, mockProjects, mockUsers, mockTags, USE_MOCK_DATA } from '../data/mockData';
 import { encodeId } from '../utils/idEncoder';
-import RichTextEditor from '../components/RichTextEditor';
+import MentionableRichTextEditor from '../components/MentionableRichTextEditor';
 import TagSelector from '../components/TagSelector';
 import BulkActions from '../components/BulkActions';
 import ExportButton from '../components/ExportButton';
@@ -77,7 +77,8 @@ const Tickets = () => {
     priority: 'MEDIUM',
     assignee_id: '',
     module: '',
-    tags: []
+    tags: [],
+    mentioned_users: []
   });
   const [users, setUsers] = useState([]);
   const [selectedTickets, setSelectedTickets] = useState([]);
@@ -92,9 +93,7 @@ const Tickets = () => {
   useEffect(() => {
     fetchTickets();
     fetchProjects();
-    if (user.role === 'ADMIN') {
-      fetchUsers();
-    }
+    fetchUsers(); // Fetch users for mentions (all users need this)
   }, [filters]);
 
   // Reset selectAll when page changes
@@ -187,9 +186,13 @@ const Tickets = () => {
     try {
       await api.post('/tickets', {
         ...formData,
-        assignee_id: formData.assignee_id || null
+        assignee_id: formData.assignee_id || null,
+        mentioned_users: formData.mentioned_users || []
       });
       toast.success(`Ticket "${formData.title}" created successfully! 🎫`);
+      if (formData.mentioned_users && formData.mentioned_users.length > 0) {
+        toast.success(`${formData.mentioned_users.length} user(s) tagged! 👥`);
+      }
       setOpenDialog(false);
       setFormData({
         project_id: '',
@@ -199,7 +202,8 @@ const Tickets = () => {
         priority: 'MEDIUM',
         assignee_id: '',
         module: '',
-        tags: []
+        tags: [],
+        mentioned_users: []
       });
       fetchTickets();
     } catch (err) {
@@ -1304,11 +1308,13 @@ const Tickets = () => {
             required
           />
           <Box sx={{ mt: 2, mb: 1 }}>
-            <RichTextEditor
+            <MentionableRichTextEditor
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              onMentionsChange={(userIds) => setFormData({ ...formData, mentioned_users: userIds })}
               label="Description"
               minHeight={150}
+              users={users}
             />
           </Box>
           <Box sx={{ mt: 2, mb: 1 }}>

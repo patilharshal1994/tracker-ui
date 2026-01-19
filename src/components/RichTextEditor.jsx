@@ -1,15 +1,116 @@
 import { useState, useEffect } from 'react';
-import { Box, Typography } from '@mui/material';
+import { Box, Typography, useTheme as useMuiTheme } from '@mui/material';
 import { CKEditor } from '@ckeditor/ckeditor5-react';
 import ClassicEditor from '@ckeditor/ckeditor5-build-classic';
+import { useTheme } from '../context/ThemeContext';
 import React from 'react';
 
 const RichTextEditor = ({ value, onChange, label, error, helperText, disabled, minHeight = 200 }) => {
   const [editorData, setEditorData] = useState(value || '');
+  const { mode } = useTheme();
+  const muiTheme = useMuiTheme();
 
   useEffect(() => {
     setEditorData(value || '');
   }, [value]);
+
+  // Inject dark mode styles for CKEditor
+  useEffect(() => {
+    const styleId = 'ckeditor-dark-mode';
+    let style = document.getElementById(styleId);
+    
+    if (mode === 'dark') {
+      if (!style) {
+        style = document.createElement('style');
+        style.id = styleId;
+        document.head.appendChild(style);
+      }
+      style.textContent = `
+        .ck-editor__editable {
+          background-color: #1e1e1e !important;
+          color: #ffffff !important;
+        }
+        .ck-editor__editable.ck-focused {
+          background-color: #1e1e1e !important;
+          color: #ffffff !important;
+          box-shadow: none !important;
+        }
+        .ck-editor__editable p {
+          color: #ffffff !important;
+        }
+        .ck-editor__editable h1,
+        .ck-editor__editable h2,
+        .ck-editor__editable h3,
+        .ck-editor__editable h4,
+        .ck-editor__editable h5,
+        .ck-editor__editable h6 {
+          color: #ffffff !important;
+        }
+        .ck-editor__editable ul,
+        .ck-editor__editable ol {
+          color: #ffffff !important;
+        }
+        .ck-editor__editable blockquote {
+          color: #ffffff !important;
+          border-left-color: #424242 !important;
+        }
+        .ck-editor__editable a {
+          color: #64b5f6 !important;
+        }
+        .ck-toolbar {
+          background-color: #2d2d2d !important;
+          border-color: #424242 !important;
+        }
+        .ck-toolbar__separator {
+          background-color: #424242 !important;
+        }
+        .ck-button {
+          color: #ffffff !important;
+        }
+        .ck-button:hover:not(.ck-disabled) {
+          background-color: #424242 !important;
+        }
+        .ck-button.ck-on {
+          background-color: #424242 !important;
+        }
+        .ck-dropdown__panel {
+          background-color: #2d2d2d !important;
+          border-color: #424242 !important;
+        }
+        .ck-list__item {
+          color: #ffffff !important;
+        }
+        .ck-list__item:hover {
+          background-color: #424242 !important;
+        }
+        .ck-list__item.ck-on {
+          background-color: #424242 !important;
+        }
+        .ck-input-text {
+          background-color: #1e1e1e !important;
+          color: #ffffff !important;
+          border-color: #424242 !important;
+        }
+        .ck-input-text:focus {
+          border-color: #1976d2 !important;
+        }
+        .ck-placeholder::before {
+          color: rgba(255, 255, 255, 0.5) !important;
+        }
+      `;
+    } else {
+      if (style) {
+        style.textContent = '';
+      }
+    }
+    
+    return () => {
+      // Cleanup on unmount
+      if (style && mode === 'light') {
+        style.textContent = '';
+      }
+    };
+  }, [mode]);
 
   const handleEditorChange = (event, editor) => {
     const data = editor.getData();
@@ -46,16 +147,55 @@ const RichTextEditor = ({ value, onChange, label, error, helperText, disabled, m
           borderColor: error ? 'error.main' : 'divider',
           borderRadius: 1,
           overflow: 'hidden',
+          bgcolor: mode === 'dark' ? 'background.paper' : 'background.paper',
           '& .ck-editor': {
             minHeight: `${minHeight}px`
           },
           '& .ck-editor__editable': {
             minHeight: `${minHeight}px`,
             maxHeight: '400px',
-            overflowY: 'auto'
+            overflowY: 'auto',
+            backgroundColor: mode === 'dark' ? '#1e1e1e' : '#ffffff',
+            color: mode === 'dark' ? '#ffffff' : '#000000',
+            '&:focus': {
+              backgroundColor: mode === 'dark' ? '#1e1e1e' : '#ffffff',
+              color: mode === 'dark' ? '#ffffff' : '#000000'
+            },
+            '& p': {
+              color: mode === 'dark' ? '#ffffff' : '#000000'
+            },
+            '& h1, & h2, & h3, & h4, & h5, & h6': {
+              color: mode === 'dark' ? '#ffffff' : '#000000'
+            },
+            '& ul, & ol': {
+              color: mode === 'dark' ? '#ffffff' : '#000000'
+            },
+            '& blockquote': {
+              color: mode === 'dark' ? '#ffffff' : '#000000',
+              borderLeftColor: mode === 'dark' ? '#424242' : '#e0e0e0'
+            },
+            '& a': {
+              color: mode === 'dark' ? '#64b5f6' : '#1976d2'
+            }
           },
           '& .ck-editor__editable_inline': {
             border: 'none'
+          },
+          '& .ck-toolbar': {
+            backgroundColor: mode === 'dark' ? '#2d2d2d' : '#f5f5f5',
+            borderColor: mode === 'dark' ? '#424242' : '#e0e0e0'
+          },
+          '& .ck-button': {
+            color: mode === 'dark' ? '#ffffff' : '#000000',
+            '&:hover:not(.ck-disabled)': {
+              backgroundColor: mode === 'dark' ? '#424242' : '#e0e0e0'
+            },
+            '&.ck-on': {
+              backgroundColor: mode === 'dark' ? '#424242' : '#e0e0e0'
+            }
+          },
+          '& .ck-toolbar__separator': {
+            backgroundColor: mode === 'dark' ? '#424242' : '#e0e0e0'
           }
         }}
       >
