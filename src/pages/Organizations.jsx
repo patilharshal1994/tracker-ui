@@ -23,6 +23,7 @@ import {
 } from '@mui/material';
 import { Add, Edit, Delete, Business } from '@mui/icons-material';
 import toast from 'react-hot-toast';
+import api from '../config/api';
 import { useAuth } from '../context/AuthContext';
 import { mockOrganizations, mockUsers, USE_MOCK_DATA } from '../data/mockData';
 import { ROLES, canAccess } from '../utils/roleHierarchy';
@@ -35,6 +36,7 @@ const Organizations = () => {
   const [error, setError] = useState('');
   const [openDialog, setOpenDialog] = useState(false);
   const [formData, setFormData] = useState({ name: '', description: '' });
+  const [formErrors, setFormErrors] = useState({ name: '', description: '' });
 
   useEffect(() => {
     fetchOrganizations();
@@ -46,9 +48,8 @@ const Organizations = () => {
       if (USE_MOCK_DATA) {
         setOrganizations(mockOrganizations);
       } else {
-        // API call would go here
-        // const response = await api.get('/organizations');
-        // setOrganizations(response.data);
+        const response = await api.get('/organizations');
+        setOrganizations(response.data?.data || []);
       }
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to load organizations');
@@ -57,25 +58,83 @@ const Organizations = () => {
     }
   };
 
+  const validateForm = () => {
+    const errors = {};
+    let isValid = true;
+
+    // Validate name
+    const trimmedName = formData.name?.trim() || '';
+    if (!trimmedName) {
+      errors.name = 'Organization name is required';
+      isValid = false;
+    } else if (trimmedName.length < 2) {
+      errors.name = 'Organization name must be at least 2 characters';
+      isValid = false;
+    } else if (trimmedName.length > 255) {
+      errors.name = 'Organization name must be less than 255 characters';
+      isValid = false;
+    } else {
+      // Check for duplicate name
+      const duplicateOrg = organizations.find(
+        o => o.name.trim().toLowerCase() === trimmedName.toLowerCase()
+      );
+      if (duplicateOrg) {
+        errors.name = 'Organization name already exists';
+        isValid = false;
+      }
+    }
+
+    // Validate description length
+    if (formData.description && formData.description.length > 1000) {
+      errors.description = 'Description must be less than 1000 characters';
+      isValid = false;
+    }
+
+    setFormErrors(errors);
+    return isValid;
+  };
+
   const handleCreate = async () => {
+    // Clear previous errors
+    setFormErrors({ name: '', description: '' });
+    
+    // Validate form
+    if (!validateForm()) {
+      return;
+    }
+
     try {
+      const orgData = {
+        name: formData.name.trim(),
+        description: formData.description?.trim() || undefined
+      };
+
       if (USE_MOCK_DATA) {
         const newOrg = {
           id: organizations.length + 1,
-          ...formData,
+          ...orgData,
           created_at: new Date().toISOString(),
           is_active: true
         };
         setOrganizations([...organizations, newOrg]);
         toast.success(`Organization "${formData.name}" created successfully! 🏢`);
       } else {
-        // await api.post('/organizations', formData);
+        const response = await api.post('/organizations', orgData);
+        const createdOrg = response.data?.data || response.data;
+        toast.success(`Organization "${createdOrg.name || formData.name}" created successfully! 🏢`);
+        fetchOrganizations();
       }
       setOpenDialog(false);
       setFormData({ name: '', description: '' });
+      setFormErrors({ name: '', description: '' });
     } catch (err) {
-      const errorMsg = err.response?.data?.error || 'Failed to create organization';
-      setError(errorMsg);
+      const errorMsg = err.response?.data?.error || err.response?.data?.message || 'Failed to create organization';
+      // Check if it's a duplicate name error
+      if (errorMsg.toLowerCase().includes('already exists')) {
+        setFormErrors({ name: errorMsg, description: '' });
+      } else {
+        setError(errorMsg);
+      }
       toast.error(errorMsg);
     }
   };
@@ -196,25 +255,56 @@ const Organizations = () => {
         </Table>
       </TableContainer>
 
-      <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth>
+      <Dialog 
+        open={openDialog} 
+        onClose={() => {
+          setOpenDialog(false);
+          setFormData({ name: '', description: '' });
+          setFormErrors({ name: '', description: '' });
+        }} 
+        maxWidth="sm" 
+        fullWidth
+      >
         <DialogTitle>Create New Organization</DialogTitle>
         <DialogContent>
           <TextField
             fullWidth
             label="Organization Name"
             value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            onChange={(e) => {
+              setFormData({ ...formData, name: e.target.value });
+              setFormErrors({ ...formErrors, name: '' });
+            }}
+            onBlur={() => {
+              const trimmedName = formData.name?.trim() || '';
+              if (trimmedName && trimmedName.length < 2) {
+                setFormErrors({ ...formErrors, name: 'Organization name must be at least 2 characters' });
+              } else if (trimmedName && trimmedName.length > 255) {
+                setFormErrors({ ...formErrors, name: 'Organization name must be less than 255 characters' });
+              }
+            }}
             margin="normal"
             required
+            error={!!formErrors.name}
+            helperText={formErrors.name}
+            inputProps={{ maxLength: 255 }}
           />
           <TextField
             fullWidth
             label="Description"
             value={formData.description}
-            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+            onChange={(e) => {
+              setFormData({ ...formData, description: e.target.value });
+              if (formErrors.description) {
+                setFormErrors({ ...formErrors, description: '' });
+              }
+            }}
             margin="normal"
             multiline
             rows={3}
+            error={!!formErrors.description}
+            helperText={formErrors.description}
+            inputProps={{ maxLength: 1000 }}
           />
         </DialogContent>
         <DialogActions>
@@ -222,7 +312,7 @@ const Organizations = () => {
           <Button
             onClick={handleCreate}
             variant="contained"
-            disabled={!formData.name}
+            disabled={!formData.name?.trim()}
           >
             Create
           </Button>

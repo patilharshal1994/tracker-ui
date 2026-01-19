@@ -45,6 +45,7 @@ const Projects = () => {
   const [error, setError] = useState('');
   const [openDialog, setOpenDialog] = useState(false);
   const [formData, setFormData] = useState({ name: '', description: '', team_id: '' });
+  const [formErrors, setFormErrors] = useState({ name: '', description: '' });
   const [teams, setTeams] = useState([]);
   const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -101,21 +102,72 @@ const Projects = () => {
     }
   };
 
+  const validateForm = () => {
+    const errors = {};
+    let isValid = true;
+
+    // Validate name
+    const trimmedName = formData.name?.trim() || '';
+    if (!trimmedName) {
+      errors.name = 'Project name is required';
+      isValid = false;
+    } else if (trimmedName.length < 2) {
+      errors.name = 'Project name must be at least 2 characters';
+      isValid = false;
+    } else if (trimmedName.length > 255) {
+      errors.name = 'Project name must be less than 255 characters';
+      isValid = false;
+    } else {
+      // Check for duplicate name (case-insensitive)
+      const duplicateProject = projects.find(
+        p => p.name.trim().toLowerCase() === trimmedName.toLowerCase()
+      );
+      if (duplicateProject) {
+        errors.name = 'Project name already exists';
+        isValid = false;
+      }
+    }
+
+    // Validate description length (if it's plain text)
+    if (formData.description && typeof formData.description === 'string' && formData.description.length > 1000) {
+      errors.description = 'Description must be less than 1000 characters';
+      isValid = false;
+    }
+
+    setFormErrors(errors);
+    return isValid;
+  };
+
   const handleCreate = async () => {
+    // Clear previous errors
+    setFormErrors({ name: '', description: '' });
+    
+    // Validate form
+    if (!validateForm()) {
+      return;
+    }
+
     try {
       // Backend returns: { data: {...}, message: '...' }
       const response = await api.post('/projects', {
-        ...formData,
+        name: formData.name.trim(),
+        description: formData.description || null,
         team_id: formData.team_id || null
       });
       const project = response.data?.data || response.data;
       toast.success(`Project "${project.name || formData.name}" created successfully! 📁`);
       setOpenDialog(false);
       setFormData({ name: '', description: '', team_id: '' });
+      setFormErrors({ name: '', description: '' });
       fetchProjects();
     } catch (err) {
       const errorMsg = err.response?.data?.error || err.response?.data?.message || 'Failed to create project';
-      setError(errorMsg);
+      // Check if it's a duplicate name error
+      if (errorMsg.toLowerCase().includes('already exists') || errorMsg.toLowerCase().includes('duplicate')) {
+        setFormErrors({ name: errorMsg, description: '' });
+      } else {
+        setError(errorMsg);
+      }
       toast.error(errorMsg);
     }
   };
@@ -308,9 +360,23 @@ const Projects = () => {
             fullWidth
             label="Project Name"
             value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            onChange={(e) => {
+              setFormData({ ...formData, name: e.target.value });
+              setFormErrors({ ...formErrors, name: '' });
+            }}
+            onBlur={() => {
+              const trimmedName = formData.name?.trim() || '';
+              if (trimmedName && trimmedName.length < 2) {
+                setFormErrors({ ...formErrors, name: 'Project name must be at least 2 characters' });
+              } else if (trimmedName && trimmedName.length > 255) {
+                setFormErrors({ ...formErrors, name: 'Project name must be less than 255 characters' });
+              }
+            }}
             margin="normal"
             required
+            error={!!formErrors.name}
+            helperText={formErrors.name}
+            inputProps={{ maxLength: 255 }}
           />
           <Box sx={{ mt: 2, mb: 1 }}>
             <RichTextEditor
@@ -342,7 +408,7 @@ const Projects = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpenDialog(false)}>Cancel</Button>
-          <Button onClick={handleCreate} variant="contained" disabled={!formData.name}>
+          <Button onClick={handleCreate} variant="contained" disabled={!formData.name?.trim()}>
             Create
           </Button>
         </DialogActions>

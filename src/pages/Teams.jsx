@@ -41,6 +41,7 @@ const Teams = () => {
   const [openDialog, setOpenDialog] = useState(false);
   const [editingTeam, setEditingTeam] = useState(null);
   const [formData, setFormData] = useState({ name: '', organization_id: '' });
+  const [formErrors, setFormErrors] = useState({ name: '', organization_id: '' });
   const [organizations, setOrganizations] = useState([]);
   const [selectedTeam, setSelectedTeam] = useState(null);
   const [teamDetails, setTeamDetails] = useState(null);
@@ -112,12 +113,64 @@ const Teams = () => {
     }
   };
 
+  const validateForm = () => {
+    const errors = {};
+    let isValid = true;
+
+    // Validate name
+    const trimmedName = formData.name?.trim() || '';
+    if (!trimmedName) {
+      errors.name = 'Team name is required';
+      isValid = false;
+    } else if (trimmedName.length < 2) {
+      errors.name = 'Team name must be at least 2 characters';
+      isValid = false;
+    } else if (trimmedName.length > 255) {
+      errors.name = 'Team name must be less than 255 characters';
+      isValid = false;
+    } else {
+      // Check for duplicate name within organization
+      const orgId = user?.role === ROLES.ORG_ADMIN 
+        ? user.organization_id 
+        : formData.organization_id;
+      
+      if (orgId) {
+        const duplicateTeam = teams.find(
+          t => t.name.trim().toLowerCase() === trimmedName.toLowerCase() 
+            && t.organization_id === orgId
+            && (!editingTeam || t.id !== editingTeam.id)
+        );
+        if (duplicateTeam) {
+          errors.name = 'Team name already exists in this organization';
+          isValid = false;
+        }
+      }
+    }
+
+    // Validate organization_id for Super Admin
+    if (user?.role === ROLES.SUPER_ADMIN && !formData.organization_id) {
+      errors.organization_id = 'Organization is required';
+      isValid = false;
+    }
+
+    setFormErrors(errors);
+    return isValid;
+  };
+
   const handleCreate = async () => {
+    // Clear previous errors
+    setFormErrors({ name: '', organization_id: '' });
+    
+    // Validate form
+    if (!validateForm()) {
+      return;
+    }
+
     try {
       // Set organization_id based on user role
       // Convert empty string to null/undefined for optional fields
       const teamData = {
-        name: formData.name,
+        name: formData.name.trim(),
         description: formData.description || undefined,
         organization_id: user?.role === ROLES.ORG_ADMIN 
           ? user.organization_id 
@@ -144,16 +197,29 @@ const Teams = () => {
       fetchTeams();
     } catch (err) {
       const errorMsg = err.response?.data?.error || err.response?.data?.message || 'Failed to create team';
-      setError(errorMsg);
+      // Check if it's a duplicate name error
+      if (errorMsg.toLowerCase().includes('already exists')) {
+        setFormErrors({ name: errorMsg, organization_id: '' });
+      } else {
+        setError(errorMsg);
+      }
       toast.error(errorMsg);
     }
   };
 
   const handleUpdate = async () => {
+    // Clear previous errors
+    setFormErrors({ name: '', organization_id: '' });
+    
+    // Validate form
+    if (!validateForm()) {
+      return;
+    }
+
     try {
       // Convert empty string to null/undefined for optional fields
       const teamData = {
-        name: formData.name,
+        name: formData.name.trim(),
         description: formData.description || undefined,
         organization_id: user?.role === ROLES.ORG_ADMIN 
           ? user.organization_id 
@@ -177,7 +243,12 @@ const Teams = () => {
       }
     } catch (err) {
       const errorMsg = err.response?.data?.error || err.response?.data?.message || 'Failed to update team';
-      setError(errorMsg);
+      // Check if it's a duplicate name error
+      if (errorMsg.toLowerCase().includes('already exists')) {
+        setFormErrors({ name: errorMsg, organization_id: '' });
+      } else {
+        setError(errorMsg);
+      }
       toast.error(errorMsg);
     }
   };
@@ -205,6 +276,7 @@ const Teams = () => {
       name: '', 
       organization_id: user?.role === ROLES.ORG_ADMIN ? (user.organization_id || '') : '' 
     });
+    setFormErrors({ name: '', organization_id: '' });
     setEditingTeam(null);
   };
 
@@ -415,12 +487,15 @@ const Teams = () => {
         <DialogTitle>{editingTeam ? 'Edit Team' : 'Create Team'}</DialogTitle>
         <DialogContent>
           {user?.role === ROLES.SUPER_ADMIN && (
-            <FormControl fullWidth margin="normal">
+            <FormControl fullWidth margin="normal" error={!!formErrors.organization_id} required>
               <InputLabel>Organization</InputLabel>
               <Select
                 value={formData.organization_id}
                 label="Organization"
-                onChange={(e) => setFormData({ ...formData, organization_id: e.target.value })}
+                onChange={(e) => {
+                  setFormData({ ...formData, organization_id: e.target.value });
+                  setFormErrors({ ...formErrors, organization_id: '' });
+                }}
                 required
               >
                 <MenuItem value="">Select Organization</MenuItem>
@@ -430,15 +505,34 @@ const Teams = () => {
                   </MenuItem>
                 ))}
               </Select>
+              {formErrors.organization_id && (
+                <Typography variant="caption" color="error" sx={{ mt: 0.5, ml: 1.75 }}>
+                  {formErrors.organization_id}
+                </Typography>
+              )}
             </FormControl>
           )}
           <TextField
             fullWidth
             label="Team Name"
             value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            onChange={(e) => {
+              setFormData({ ...formData, name: e.target.value });
+              setFormErrors({ ...formErrors, name: '' });
+            }}
+            onBlur={() => {
+              const trimmedName = formData.name?.trim() || '';
+              if (trimmedName && trimmedName.length < 2) {
+                setFormErrors({ ...formErrors, name: 'Team name must be at least 2 characters' });
+              } else if (trimmedName && trimmedName.length > 255) {
+                setFormErrors({ ...formErrors, name: 'Team name must be less than 255 characters' });
+              }
+            }}
             margin="normal"
             required
+            error={!!formErrors.name}
+            helperText={formErrors.name}
+            inputProps={{ maxLength: 255 }}
           />
         </DialogContent>
         <DialogActions>
@@ -446,7 +540,7 @@ const Teams = () => {
           <Button
             onClick={editingTeam ? handleUpdate : handleCreate}
             variant="contained"
-            disabled={!formData.name || (user?.role === ROLES.SUPER_ADMIN && !formData.organization_id)}
+            disabled={!formData.name?.trim() || (user?.role === ROLES.SUPER_ADMIN && !formData.organization_id)}
           >
             {editingTeam ? 'Update' : 'Create'}
           </Button>
