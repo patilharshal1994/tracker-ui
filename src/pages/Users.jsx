@@ -26,12 +26,12 @@ import {
   Pagination,
   TableFooter
 } from '@mui/material';
-import { Add, Edit, Delete } from '@mui/icons-material';
+import { Add, Edit, Delete, LockReset } from '@mui/icons-material';
 import toast from 'react-hot-toast';
 import api from '../config/api';
 import { useAuth } from '../context/AuthContext';
 import { mockApi, mockUsers, mockTeams, mockOrganizations, USE_MOCK_DATA } from '../data/mockData';
-import { canAccess, canCreateRole, ROLES, getRoleDisplayName, getRoleColor } from '../utils/roleHierarchy';
+import { canAccess, canCreateRole, canResetPassword, ROLES, getRoleDisplayName, getRoleColor } from '../utils/roleHierarchy';
 import React from 'react' 
 const Users = () => {
   const { user } = useAuth();
@@ -39,6 +39,12 @@ const Users = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [openDialog, setOpenDialog] = useState(false);
+  const [openResetPasswordDialog, setOpenResetPasswordDialog] = useState(false);
+  const [resettingUser, setResettingUser] = useState(null);
+  const [resetPasswordData, setResetPasswordData] = useState({
+    newPassword: '',
+    confirmPassword: ''
+  });
   const [editingUser, setEditingUser] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
@@ -190,11 +196,66 @@ const Users = () => {
     if (!window.confirm('Are you sure you want to delete this user?')) return;
 
     try {
-      await api.delete(`/users/${userId}`);
-      toast.success('User deleted successfully! 🗑️');
+      if (USE_MOCK_DATA) {
+        setUsers(users.filter(u => u.id !== userId));
+        toast.success('User deleted successfully! 🗑️');
+      } else {
+        await api.delete(`/users/${userId}`);
+        toast.success('User deleted successfully! 🗑️');
+      }
       fetchUsers();
     } catch (err) {
       const errorMsg = err.response?.data?.error || 'Failed to delete user';
+      setError(errorMsg);
+      toast.error(errorMsg);
+    }
+  };
+
+  const handleOpenResetPasswordDialog = (userData) => {
+    setResettingUser(userData);
+    setResetPasswordData({
+      newPassword: '',
+      confirmPassword: ''
+    });
+    setOpenResetPasswordDialog(true);
+  };
+
+  const handleResetPassword = async () => {
+    if (!resetPasswordData.newPassword || !resetPasswordData.confirmPassword) {
+      toast.error('Please fill in all password fields');
+      return;
+    }
+
+    if (resetPasswordData.newPassword !== resetPasswordData.confirmPassword) {
+      toast.error('Passwords do not match');
+      return;
+    }
+
+    if (resetPasswordData.newPassword.length < 6) {
+      toast.error('Password must be at least 6 characters long');
+      return;
+    }
+
+    try {
+      if (USE_MOCK_DATA) {
+        // In mock mode, just update the user's password (in real app, this would be hashed)
+        setUsers(users.map(u => 
+          u.id === resettingUser.id 
+            ? { ...u, password: resetPasswordData.newPassword } 
+            : u
+        ));
+        toast.success(`Password reset successfully for "${resettingUser.name}"! 🔐`);
+      } else {
+        await api.put(`/users/${resettingUser.id}/reset-password`, {
+          password: resetPasswordData.newPassword
+        });
+        toast.success(`Password reset successfully for "${resettingUser.name}"! 🔐`);
+      }
+      setOpenResetPasswordDialog(false);
+      setResetPasswordData({ newPassword: '', confirmPassword: '' });
+      setResettingUser(null);
+    } catch (err) {
+      const errorMsg = err.response?.data?.error || 'Failed to reset password';
       setError(errorMsg);
       toast.error(errorMsg);
     }
@@ -368,6 +429,16 @@ const Users = () => {
                     <IconButton size="small" onClick={() => openEditDialog(u)}>
                       <Edit />
                     </IconButton>
+                    {canResetPassword(user, u) && (
+                      <IconButton 
+                        size="small" 
+                        onClick={() => handleOpenResetPasswordDialog(u)}
+                        color="warning"
+                        title="Reset Password"
+                      >
+                        <LockReset />
+                      </IconButton>
+                    )}
                     {(user?.role === ROLES.SUPER_ADMIN || user?.role === ROLES.ORG_ADMIN) && (
                       <IconButton size="small" onClick={() => handleDelete(u.id)}>
                         <Delete />
@@ -508,6 +579,76 @@ const Users = () => {
             disabled={!formData.name || !formData.email || (!editingUser && !formData.password)}
           >
             {editingUser ? 'Update' : 'Create'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Reset Password Dialog */}
+      <Dialog 
+        open={openResetPasswordDialog} 
+        onClose={() => {
+          setOpenResetPasswordDialog(false);
+          setResetPasswordData({ newPassword: '', confirmPassword: '' });
+          setResettingUser(null);
+        }} 
+        maxWidth="sm" 
+        fullWidth
+      >
+        <DialogTitle>
+          Reset Password for {resettingUser?.name}
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Enter a new password for {resettingUser?.name} ({resettingUser?.email})
+          </Typography>
+          <TextField
+            fullWidth
+            label="New Password"
+            type="password"
+            value={resetPasswordData.newPassword}
+            onChange={(e) => setResetPasswordData({ ...resetPasswordData, newPassword: e.target.value })}
+            margin="normal"
+            required
+            helperText="Password must be at least 6 characters long"
+          />
+          <TextField
+            fullWidth
+            label="Confirm Password"
+            type="password"
+            value={resetPasswordData.confirmPassword}
+            onChange={(e) => setResetPasswordData({ ...resetPasswordData, confirmPassword: e.target.value })}
+            margin="normal"
+            required
+            error={resetPasswordData.newPassword !== '' && resetPasswordData.confirmPassword !== '' && resetPasswordData.newPassword !== resetPasswordData.confirmPassword}
+            helperText={
+              resetPasswordData.newPassword !== '' && resetPasswordData.confirmPassword !== '' && resetPasswordData.newPassword !== resetPasswordData.confirmPassword
+                ? 'Passwords do not match'
+                : ''
+            }
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button 
+            onClick={() => {
+              setOpenResetPasswordDialog(false);
+              setResetPasswordData({ newPassword: '', confirmPassword: '' });
+              setResettingUser(null);
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleResetPassword}
+            variant="contained"
+            color="warning"
+            disabled={
+              !resetPasswordData.newPassword || 
+              !resetPasswordData.confirmPassword ||
+              resetPasswordData.newPassword !== resetPasswordData.confirmPassword ||
+              resetPasswordData.newPassword.length < 6
+            }
+          >
+            Reset Password
           </Button>
         </DialogActions>
       </Dialog>

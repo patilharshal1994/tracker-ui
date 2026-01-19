@@ -38,6 +38,7 @@ import { useTheme } from '../context/ThemeContext';
 import { mockUser, USE_MOCK_DATA } from '../data/mockData';
 import { getMenuItems, getRoleDisplayName, getRoleColor, ROLES } from '../utils/roleHierarchy';
 import NotificationCenter from './NotificationCenter';
+import logo from '../assets/logo.png';
 import React, { useEffect, useRef, useState } from 'react'
 const drawerWidth = 240;
 const collapsedDrawerWidth = 64;
@@ -129,14 +130,43 @@ const Layout = ({ children }) => {
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          minHeight: '64px !important'
+          minHeight: '64px !important',
+          gap: 2
         }}
       >
-        {!collapsed && (
-          <Typography variant="h6" noWrap component="div">
-            Issue Tracker
-          </Typography>
-        )}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1 }}>
+          <Box
+            sx={{
+              height: collapsed ? 32 : 40,
+              width: collapsed ? 32 : 40,
+              borderRadius: '10px',
+              overflow: 'hidden',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: 'transparent',
+              transition: 'all 0.3s'
+            }}
+          >
+            <Box
+              component="img"
+              src={logo}
+              alt="Logo"
+              sx={{
+                height: '120%',
+                width: '120%',
+                objectFit: 'contain',
+                objectPosition: 'center',
+                display: 'block'
+              }}
+            />
+          </Box>
+          {!collapsed && (
+            <Typography variant="h6" noWrap component="div" sx={{ fontWeight: 600 }}>
+              Issue Tracker
+            </Typography>
+          )}
+        </Box>
         <IconButton
           onClick={() => setCollapsed(!collapsed)}
           sx={{ 

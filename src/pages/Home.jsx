@@ -59,6 +59,7 @@ import { useTheme as useCustomTheme } from '../context/ThemeContext';
 import React from 'react';
 import { AppBar, Toolbar } from '@mui/material';
 import { Login as LoginIcon } from '@mui/icons-material';
+import logo from '../assets/logo.png';
 
 const Home = () => {
   const navigate = useNavigate();
@@ -355,9 +356,36 @@ const Home = () => {
         }}
       >
         <Toolbar>
-          <Typography variant="h6" sx={{ flexGrow: 1, fontWeight: 'bold' }}>
-            Issue Tracker
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexGrow: 1 }}>
+            <Box
+              sx={{
+                height: 40,
+                width: 40,
+                borderRadius: '10px',
+                overflow: 'hidden',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: 'transparent'
+              }}
+            >
+              <Box
+                component="img"
+                src={logo}
+                alt="Logo"
+                sx={{
+                  height: '120%',
+                  width: '120%',
+                  objectFit: 'contain',
+                  objectPosition: 'center',
+                  display: 'block'
+                }}
+              />
+            </Box>
+            <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+              Issue Tracker
+            </Typography>
+          </Box>
           <Button
             variant="contained"
             startIcon={<LoginIcon />}

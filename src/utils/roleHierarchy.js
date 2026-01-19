@@ -105,6 +105,31 @@ export const canCreateRole = (user, targetRole) => {
   return false;
 };
 
+// Check if user can reset password of another user
+export const canResetPassword = (currentUser, targetUser) => {
+  if (!currentUser || !targetUser) return false;
+  
+  const { role: currentRole, organization_id: currentOrgId, team_id: currentTeamId } = currentUser;
+  const { role: targetRole, organization_id: targetOrgId, team_id: targetTeamId } = targetUser;
+
+  // Super Admin can reset password of anyone
+  if (currentRole === ROLES.SUPER_ADMIN) return true;
+
+  // Org Admin can reset password of: ORG_ADMIN, TEAM_LEAD, USER (within their org)
+  if (currentRole === ROLES.ORG_ADMIN) {
+    if (targetOrgId !== currentOrgId) return false; // Must be in same organization
+    return targetRole === ROLES.ORG_ADMIN || targetRole === ROLES.TEAM_LEAD || targetRole === ROLES.USER;
+  }
+
+  // Team Lead can reset password of: USER (in their team)
+  if (currentRole === ROLES.TEAM_LEAD) {
+    if (targetTeamId !== currentTeamId) return false; // Must be in same team
+    return targetRole === ROLES.USER;
+  }
+
+  return false;
+};
+
 // Get menu items based on role
 export const getMenuItems = (user) => {
   if (!user) return [];

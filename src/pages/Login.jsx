@@ -20,6 +20,7 @@ import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
 import { mockUsers, mockOrganizations, USE_MOCK_DATA } from '../data/mockData';
 import { getRoleDisplayName, getRoleColor, ROLES } from '../utils/roleHierarchy';
+import logo from '../assets/logo.png';
 import React from 'react'
 
 const Login = () => {
@@ -64,9 +65,37 @@ const Login = () => {
         }}
       >
         <Paper elevation={3} sx={{ p: 4, width: '100%' }}>
-          <Typography variant="h4" component="h1" gutterBottom align="center">
-            Issue Tracker
-          </Typography>
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 3 }}>
+            <Box
+              sx={{
+                height: 60,
+                width: 60,
+                borderRadius: '10px',
+                overflow: 'hidden',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: 'transparent',
+                mb: 2
+              }}
+            >
+              <Box
+                component="img"
+                src={logo}
+                alt="Logo"
+                sx={{
+                  height: '120%',
+                  width: '120%',
+                  objectFit: 'contain',
+                  objectPosition: 'center',
+                  display: 'block'
+                }}
+              />
+            </Box>
+            <Typography variant="h4" component="h1" gutterBottom align="center" sx={{ fontWeight: 600 }}>
+              Issue Tracker
+            </Typography>
+          </Box>
           <Typography variant="body2" color="text.secondary" align="center" sx={{ mb: 3 }}>
             Sign in to your account
           </Typography>
