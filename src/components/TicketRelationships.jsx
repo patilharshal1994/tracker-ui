@@ -35,7 +35,7 @@ import React from 'react';
 const TicketRelationships = ({ ticketId, relationships = [], onAdd, onRemove }) => {
   const [open, setOpen] = useState(false);
   const [relatedTicketId, setRelatedTicketId] = useState('');
-  const [relationshipType, setRelationshipType] = useState('relates_to');
+  const [relationshipType, setRelationshipType] = useState('RELATES_TO');
   const [availableTickets, setAvailableTickets] = useState([]);
   const navigate = useNavigate();
 
@@ -48,8 +48,8 @@ const TicketRelationships = ({ ticketId, relationships = [], onAdd, onRemove }) 
       // Backend returns: { data: [...], pagination: {...} } or array directly
       const response = await api.get('/tickets');
       const ticketsData = response.data?.data || response.data || [];
-      // Filter out current ticket (handle both UUID and integer IDs)
-      const tickets = ticketsData.filter(t => t.id !== ticketId && t.id !== parseInt(ticketId));
+      // Filter out current ticket
+      const tickets = ticketsData.filter(t => t.id !== ticketId);
       setAvailableTickets(tickets);
     } catch (error) {
       console.error('Failed to fetch tickets:', error);
@@ -59,53 +59,53 @@ const TicketRelationships = ({ ticketId, relationships = [], onAdd, onRemove }) 
   const handleAdd = () => {
     if (relatedTicketId && relationshipType) {
       onAdd({
-        ticket_id: parseInt(ticketId),
-        related_ticket_id: parseInt(relatedTicketId),
+        ticket_id: ticketId,
+        related_ticket_id: relatedTicketId,
         relationship_type: relationshipType
       });
       setRelatedTicketId('');
-      setRelationshipType('relates_to');
+      setRelationshipType('RELATES_TO');
       setOpen(false);
     }
   };
 
   const getRelationshipIcon = (type) => {
+    const typeUpper = type?.toUpperCase();
     const icons = {
-      blocks: <Block />,
-      blocked_by: <Block />,
-      duplicates: <ContentCopy />,
-      duplicate_of: <ContentCopy />,
-      relates_to: <LinkIcon />,
-      parent: <CallSplit />,
-      child: <CallSplit />
+      BLOCKS: <Block />,
+      BLOCKED_BY: <Block />,
+      DUPLICATE: <ContentCopy />,
+      RELATES_TO: <LinkIcon />,
+      PARENT: <CallSplit />,
+      CHILD: <CallSplit />
     };
-    return icons[type] || <LinkIcon />;
+    return icons[typeUpper] || <LinkIcon />;
   };
 
   const getRelationshipLabel = (type) => {
+    const typeUpper = type?.toUpperCase();
     const labels = {
-      blocks: 'Blocks',
-      blocked_by: 'Blocked By',
-      duplicates: 'Duplicates',
-      duplicate_of: 'Duplicate Of',
-      relates_to: 'Relates To',
-      parent: 'Parent',
-      child: 'Child'
+      BLOCKS: 'Blocks',
+      BLOCKED_BY: 'Blocked By',
+      DUPLICATE: 'Duplicate',
+      RELATES_TO: 'Relates To',
+      PARENT: 'Parent',
+      CHILD: 'Child'
     };
-    return labels[type] || type;
+    return labels[typeUpper] || type;
   };
 
   const getRelationshipColor = (type) => {
+    const typeUpper = type?.toUpperCase();
     const colors = {
-      blocks: 'error',
-      blocked_by: 'warning',
-      duplicates: 'info',
-      duplicate_of: 'info',
-      relates_to: 'default',
-      parent: 'primary',
-      child: 'secondary'
+      BLOCKS: 'error',
+      BLOCKED_BY: 'warning',
+      DUPLICATE: 'info',
+      RELATES_TO: 'default',
+      PARENT: 'primary',
+      CHILD: 'secondary'
     };
-    return colors[type] || 'default';
+    return colors[typeUpper] || 'default';
   };
 
   return (
@@ -197,9 +197,9 @@ const TicketRelationships = ({ ticketId, relationships = [], onAdd, onRemove }) 
             <Autocomplete
               options={availableTickets}
               getOptionLabel={(option) => `#${option.id}: ${option.title}`}
-              value={availableTickets.find(t => t.id === parseInt(relatedTicketId)) || null}
+              value={availableTickets.find(t => t.id === relatedTicketId) || null}
               onChange={(event, newValue) => {
-                setRelatedTicketId(newValue ? newValue.id.toString() : '');
+                setRelatedTicketId(newValue ? newValue.id : '');
               }}
               renderInput={(params) => (
                 <TextField {...params} label="Select Ticket" />
@@ -212,13 +212,12 @@ const TicketRelationships = ({ ticketId, relationships = [], onAdd, onRemove }) 
                 label="Relationship Type"
                 onChange={(e) => setRelationshipType(e.target.value)}
               >
-                <MenuItem value="relates_to">Relates To</MenuItem>
-                <MenuItem value="blocks">Blocks</MenuItem>
-                <MenuItem value="blocked_by">Blocked By</MenuItem>
-                <MenuItem value="duplicates">Duplicates</MenuItem>
-                <MenuItem value="duplicate_of">Duplicate Of</MenuItem>
-                <MenuItem value="parent">Parent</MenuItem>
-                <MenuItem value="child">Child</MenuItem>
+                <MenuItem value="RELATES_TO">Relates To</MenuItem>
+                <MenuItem value="BLOCKS">Blocks</MenuItem>
+                <MenuItem value="BLOCKED_BY">Blocked By</MenuItem>
+                <MenuItem value="DUPLICATE">Duplicates</MenuItem>
+                <MenuItem value="PARENT">Parent</MenuItem>
+                <MenuItem value="CHILD">Child</MenuItem>
               </Select>
             </FormControl>
           </Box>

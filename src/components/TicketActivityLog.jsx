@@ -36,27 +36,33 @@ const TicketActivityLog = ({ ticketId }) => {
   };
 
   const getActionIcon = (actionType) => {
+    if (!actionType) return '📝';
+    const type = actionType.toLowerCase();
     const icons = {
       created: '🎫',
+      ticket_created: '🎫',
       status_changed: '🔄',
       assignee_changed: '👤',
       priority_changed: '⚡',
       comment_added: '💬',
       attachment_added: '📎'
     };
-    return icons[actionType] || '📝';
+    return icons[type] || '📝';
   };
 
   const getActionColor = (actionType) => {
+    if (!actionType) return 'default';
+    const type = actionType.toLowerCase();
     const colors = {
       created: 'primary',
+      ticket_created: 'primary',
       status_changed: 'info',
       assignee_changed: 'warning',
       priority_changed: 'error',
       comment_added: 'success',
       attachment_added: 'secondary'
     };
-    return colors[actionType] || 'default';
+    return colors[type] || 'default';
   };
 
   const formatActivityDescription = (activity) => {
@@ -64,15 +70,21 @@ const TicketActivityLog = ({ ticketId }) => {
       return activity.description;
     }
 
+    // Backend uses activity_type, frontend may have used action_type
+    const actionType = activity.activity_type || activity.action_type;
+    if (!actionType) return 'Activity performed';
+
+    const type = actionType.toLowerCase();
     const actionMap = {
       created: 'created this ticket',
-      status_changed: `changed status from "${activity.old_value}" to "${activity.new_value}"`,
-      assignee_changed: `assigned to ${activity.new_value}`,
-      priority_changed: `changed priority from "${activity.old_value}" to "${activity.new_value}"`,
+      ticket_created: 'created this ticket',
+      status_changed: `changed status from "${activity.old_value || 'N/A'}" to "${activity.new_value || 'N/A'}"`,
+      assignee_changed: `assigned to ${activity.new_value || 'N/A'}`,
+      priority_changed: `changed priority from "${activity.old_value || 'N/A'}" to "${activity.new_value || 'N/A'}"`,
       comment_added: 'added a comment'
     };
 
-    return actionMap[activity.action_type] || activity.action_type.replace('_', ' ');
+    return actionMap[type] || (actionType ? actionType.replace(/_/g, ' ') : 'Activity performed');
   };
 
   if (loading) {
@@ -107,12 +119,12 @@ const TicketActivityLog = ({ ticketId }) => {
                   sx={{
                     width: 40,
                     height: 40,
-                    bgcolor: `${getActionColor(activity.action_type)}.main`,
+                    bgcolor: `${getActionColor(activity.activity_type || activity.action_type)}.main`,
                     fontSize: '1.2rem',
                     mb: 1
                   }}
                 >
-                  {getActionIcon(activity.action_type)}
+                  {getActionIcon(activity.activity_type || activity.action_type)}
                 </Avatar>
                 {index < activities.length - 1 && (
                   <Box
@@ -128,15 +140,15 @@ const TicketActivityLog = ({ ticketId }) => {
               <Box flex={1} sx={{ pb: index < activities.length - 1 ? 3 : 0 }}>
                 <Box display="flex" alignItems="center" gap={1} mb={0.5} flexWrap="wrap">
                   <Avatar sx={{ width: 24, height: 24, fontSize: '0.75rem' }}>
-                    {activity.user_name?.charAt(0).toUpperCase()}
+                    {activity.user_name?.charAt(0).toUpperCase() || '?'}
                   </Avatar>
                   <Typography variant="body2" fontWeight="bold">
-                    {activity.user_name}
+                    {activity.user_name || 'Unknown User'}
                   </Typography>
                   <Chip
-                    label={activity.action_type.replace('_', ' ')}
+                    label={(activity.activity_type || activity.action_type || 'Activity').replace(/_/g, ' ')}
                     size="small"
-                    color={getActionColor(activity.action_type)}
+                    color={getActionColor(activity.activity_type || activity.action_type)}
                     sx={{ textTransform: 'capitalize', height: 20, fontWeight: 500 }}
                   />
                 </Box>
@@ -144,7 +156,7 @@ const TicketActivityLog = ({ ticketId }) => {
                   {formatActivityDescription(activity)}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  {formatDistanceToNow(new Date(activity.created_at), { addSuffix: true })}
+                  {activity.created_at ? formatDistanceToNow(new Date(activity.created_at), { addSuffix: true }) : ''}
                 </Typography>
               </Box>
             </Box>

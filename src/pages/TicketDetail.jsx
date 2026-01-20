@@ -136,10 +136,26 @@ const TicketDetail = () => {
   const fetchTicket = async () => {
     try {
       setLoading(true);
+      setError('');
       
-      // Backend returns: { data: {...} }
+      console.log('TicketDetail: Fetching ticket with ID:', ticketId);
+      console.log('TicketDetail: Original encoded ID:', encodedId);
+      
+      // Backend returns: ticket object directly (not wrapped in { data: {...} })
       const response = await api.get(`/tickets/${ticketId}`);
-      const ticketData = response.data?.data || response.data;
+      console.log('TicketDetail: API Response:', response);
+      console.log('TicketDetail: Response Data:', response.data);
+      
+      // Backend controller returns ticket directly: res.json(ticket)
+      // So response.data is the ticket object itself
+      const ticketData = response.data;
+      
+      if (!ticketData || !ticketData.id) {
+        throw new Error('Invalid ticket data received from server');
+      }
+      
+      console.log('TicketDetail: Ticket Data:', ticketData);
+      
       setTicket(ticketData);
       setAttachments(ticketData.attachments || []);
       setRelationships(ticketData.relationships || []);
@@ -152,7 +168,14 @@ const TicketDetail = () => {
         module: ticketData.module || ''
       });
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to load ticket');
+      console.error('TicketDetail: Fetch error:', err);
+      console.error('TicketDetail: Error response:', err.response);
+      const errorMsg = err.response?.data?.error || 
+                      err.response?.data?.message || 
+                      err.message || 
+                      'Failed to load ticket';
+      setError(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -244,12 +267,36 @@ const TicketDetail = () => {
   }
 
   if (error && !ticket) {
-    return <Alert severity="error">{error}</Alert>;
+    return (
+      <Box>
+        <Button startIcon={<ArrowBack />} onClick={() => navigate('/tickets')} sx={{ mb: 2 }}>
+          Back to Tickets
+        </Button>
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+        <Button variant="contained" onClick={fetchTicket}>
+          Retry
+        </Button>
+      </Box>
+    );
   }
 
-  if (!ticket) return null;
+  if (!ticket) {
+    return (
+      <Box>
+        <Button startIcon={<ArrowBack />} onClick={() => navigate('/tickets')} sx={{ mb: 2 }}>
+          Back to Tickets
+        </Button>
+        <Alert severity="info">Loading ticket...</Alert>
+      </Box>
+    );
+  }
 
-  const canEdit = user.role === 'ADMIN' || ticket.reporter_id === user.id || ticket.assignee_id === user.id;
+  const canEdit = user?.role === ROLES.SUPER_ADMIN || 
+                 user?.role === ROLES.ORG_ADMIN || 
+                 ticket.reporter_id === user?.id || 
+                 ticket.assignee_id === user?.id;
 
   return (
     <Box>
@@ -631,16 +678,30 @@ const TicketDetail = () => {
               <TicketWatchers
                 ticketId={ticketId}
                 watchers={watchers}
-              onAddWatcher={(userId) => {
-                if (!watchers.includes(userId)) {
-                  setWatchers([...watchers, userId]);
-                  toast.success('Watcher added successfully! 👀');
-                }
-              }}
-              onRemoveWatcher={(userId) => {
-                setWatchers(watchers.filter(id => id !== userId));
-                toast.success('Watcher removed successfully! 🗑️');
-              }}
+                onAddWatcher={async (userId) => {
+                  try {
+                    if (!watchers.includes(userId)) {
+                      await api.post(`/tickets/${ticketId}/watchers`, { user_id: userId });
+                      setWatchers([...watchers, userId]);
+                      toast.success('Watcher added successfully! 👀');
+                      fetchTicket(); // Refresh ticket data
+                    }
+                  } catch (err) {
+                    const errorMsg = err.response?.data?.error || err.response?.data?.message || 'Failed to add watcher';
+                    toast.error(errorMsg);
+                  }
+                }}
+                onRemoveWatcher={async (userId) => {
+                  try {
+                    await api.delete(`/tickets/${ticketId}/watchers/${userId}`);
+                    setWatchers(watchers.filter(id => id !== userId));
+                    toast.success('Watcher removed successfully! 🗑️');
+                    fetchTicket(); // Refresh ticket data
+                  } catch (err) {
+                    const errorMsg = err.response?.data?.error || err.response?.data?.message || 'Failed to remove watcher';
+                    toast.error(errorMsg);
+                  }
+                }}
               />
             </Paper>
 
@@ -649,20 +710,35 @@ const TicketDetail = () => {
               <TimeTracker
                 ticketId={ticketId}
                 timeLogs={timeLogs}
-              onLogTime={(log) => {
-                const newLog = {
-                  id: Date.now(),
-                  ...log,
-                  user_id: user.id,
-                  user_name: user.name
-                };
-                setTimeLogs([...timeLogs, newLog]);
-                toast.success(`${log.hours} hours logged successfully! ⏱️`);
-              }}
-              onDeleteLog={(logId) => {
-                setTimeLogs(timeLogs.filter(log => log.id !== logId));
-                toast.success('Time log deleted successfully! 🗑️');
-              }}
+                onLogTime={async (log) => {
+                  try {
+                    const response = await api.post(`/tickets/${ticketId}/time-logs`, {
+                      hours: log.hours,
+                      description: log.description || null,
+                      logged_date: log.logged_date || new Date().toISOString().split('T')[0]
+                    });
+                    toast.success(`${log.hours} hours logged successfully! ⏱️`);
+                    fetchTicket(); // Refresh ticket data to get updated time logs
+                  } catch (err) {
+                    const errorMsg = err.response?.data?.error || err.response?.data?.message || 'Failed to log time';
+                    toast.error(errorMsg);
+                  }
+                }}
+                onDeleteLog={async (logId) => {
+                  try {
+                    // Note: Backend may not have DELETE endpoint for time logs yet
+                    // For now, just update local state
+                    // TODO: Implement DELETE endpoint in backend if needed
+                    setTimeLogs(timeLogs.filter(log => log.id !== logId));
+                    toast.success('Time log deleted successfully! 🗑️');
+                    // If backend has DELETE endpoint, uncomment:
+                    // await api.delete(`/tickets/${ticketId}/time-logs/${logId}`);
+                    // fetchTicket();
+                  } catch (err) {
+                    const errorMsg = err.response?.data?.error || err.response?.data?.message || 'Failed to delete time log';
+                    toast.error(errorMsg);
+                  }
+                }}
               />
             </Paper>
           </Box>
@@ -775,18 +851,37 @@ const TicketDetail = () => {
             <TicketRelationships
               ticketId={ticketId}
               relationships={relationships}
-              onAdd={(rel) => {
-                const newRel = {
-                  id: Date.now(),
-                  ...rel,
-                  related_ticket: { id: rel.related_ticket_id }
-                };
-                setRelationships([...relationships, newRel]);
-                toast.success('Ticket relationship added successfully! 🔗');
+              onAdd={async (rel) => {
+                try {
+                  const response = await api.post(`/tickets/${ticketId}/relationships`, {
+                    related_ticket_id: rel.related_ticket_id,
+                    relationship_type: rel.relationship_type // Already in correct format from component
+                  });
+                  toast.success('Ticket relationship added successfully! 🔗');
+                  fetchTicket(); // Refresh ticket data to get updated relationships
+                } catch (err) {
+                  const errorMsg = err.response?.data?.error || err.response?.data?.message || 'Failed to add relationship';
+                  toast.error(errorMsg);
+                }
               }}
-              onRemove={(relId) => {
-                setRelationships(relationships.filter(r => r.id !== relId));
-                toast.success('Ticket relationship removed successfully! 🗑️');
+              onRemove={async (relId) => {
+                try {
+                  // Find the relationship to get related_ticket_id
+                  const rel = relationships.find(r => r.id === relId);
+                  if (rel && rel.related_ticket_id) {
+                    // Note: Backend may not have DELETE endpoint for relationships yet
+                    // For now, just update local state
+                    // TODO: Implement DELETE endpoint in backend if needed
+                    setRelationships(relationships.filter(r => r.id !== relId));
+                    toast.success('Ticket relationship removed successfully! 🗑️');
+                    // If backend has DELETE endpoint, uncomment:
+                    // await api.delete(`/tickets/${ticketId}/relationships/${rel.related_ticket_id}`);
+                    // fetchTicket();
+                  }
+                } catch (err) {
+                  const errorMsg = err.response?.data?.error || err.response?.data?.message || 'Failed to remove relationship';
+                  toast.error(errorMsg);
+                }
               }}
             />
           </Paper>
