@@ -8,6 +8,7 @@ import Login from './pages/Login';
 import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
 import Projects from './pages/Projects';
+import ProjectDetail from './pages/ProjectDetail';
 import Tickets from './pages/Tickets';
 import TicketDetail from './pages/TicketDetail';
 import Users from './pages/Users';
@@ -45,6 +46,14 @@ const AppRoutes = () => {
         element={
           <Layout>
             <Projects />
+          </Layout>
+        }
+      />
+      <Route
+        path="/projects/:id"
+        element={
+          <Layout>
+            <ProjectDetail />
           </Layout>
         }
       />

@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import React from 'react';
 import {
   Grid,
-  Paper,
   Typography,
   Box,
   Card,
@@ -20,13 +19,11 @@ import {
   Divider,
   Stack
 } from '@mui/material';
-import RoleSwitcher from '../components/RoleSwitcher';
 import {
   Assignment,
   AssignmentInd,
   Warning,
   CheckCircle,
-  HourglassEmpty,
   BugReport,
   Task,
   Lightbulb,
@@ -34,78 +31,185 @@ import {
   Person,
   Group,
   Folder,
-  AccessTime,
   PriorityHigh,
   Add
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import api from '../config/api';
 import { useAuth } from '../context/AuthContext';
-import { mockApi, mockUser, USE_MOCK_DATA } from '../data/mockData';
-import { encodeId } from '../utils/idEncoder';
+import { ROLES } from '../utils/roleHierarchy';
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user = {} } = useAuth();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [recentTickets, setRecentTickets] = useState([]);
 
   useEffect(() => {
-    fetchDashboardData();
-  }, []);
+    // Only fetch data if user is available
+    if (user && user.id) {
+      fetchDashboardData();
+    } else {
+      console.log('Dashboard: Waiting for user data...', user);
+      setLoading(false);
+    }
+  }, [user]);
 
   const fetchDashboardData = async () => {
+    // Don't fetch if user is not available
+    if (!user || !user.id) {
+      console.log('Dashboard: Cannot fetch - user not available', user);
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
+      setError('');
       
-      let ticketsRes, breachedRes;
+      console.log('Dashboard: Fetching data for user:', {
+        id: user.id,
+        role: user.role,
+        name: user.name
+      });
       
-      if (USE_MOCK_DATA) {
-        ticketsRes = await mockApi.getTickets({
-          assigned_to_me: user.role === 'USER' ? 'true' : undefined,
-          reported_by_me: user.role === 'USER' ? 'true' : undefined
-        });
-        breachedRes = await mockApi.getTickets({ is_breached: 'true' });
-      } else {
-        [ticketsRes, breachedRes] = await Promise.all([
+      // Build API calls based on user role
+      const apiCalls = [];
+      
+      if (user?.role === ROLES.USER) {
+        // For regular users, get assigned and reported tickets separately
+        apiCalls.push(
           api.get('/tickets', {
             params: {
-              assigned_to_me: user.role === 'USER' ? 'true' : undefined,
-              reported_by_me: user.role === 'USER' ? 'true' : undefined
+              assigned_to_me: 'true',
+              limit: 100 // Get more tickets for stats
             }
           }),
           api.get('/tickets', {
-            params: { is_breached: 'true' }
+            params: {
+              reported_by_me: 'true',
+              limit: 100
+            }
+          }),
+          api.get('/tickets', {
+            params: {
+              is_breached: 'true',
+              limit: 100
+            }
           })
-        ]);
+        );
+      } else {
+        // For admins/team leads, get all tickets and breached tickets
+        apiCalls.push(
+          api.get('/tickets', {
+            params: {
+              limit: 100 // Get more tickets for stats
+            }
+          }),
+          api.get('/tickets', {
+            params: {
+              is_breached: 'true',
+              limit: 100
+            }
+          })
+        );
       }
 
-      // Backend returns: { data: [...], pagination: {...} }
-      const tickets = USE_MOCK_DATA ? ticketsRes.data : (ticketsRes.data?.data || []);
-      const breachedTickets = USE_MOCK_DATA ? breachedRes.data : (breachedRes.data?.data || []);
+      const responses = await Promise.all(apiCalls);
       
-      const allTickets = user.role === 'ADMIN' || user.role === 'SUPER_ADMIN' || user.role === 'ORG_ADMIN' ? tickets : tickets;
-      const assigned = tickets.filter((t) => t.assignee_id === user.id);
-      const reported = tickets.filter((t) => t.reporter_id === user.id);
+      // Debug: Log API responses
+      console.log('Dashboard API Responses:', responses);
+      responses.forEach((res, index) => {
+        console.log(`Response ${index}:`, {
+          status: res.status,
+          data: res.data,
+          dataArray: res.data?.data,
+          dataLength: res.data?.data?.length
+        });
+      });
+      
+      // Extract data from responses - Backend returns: { data: [...], pagination: {...} }
+      let allTickets = [];
+      let assigned = [];
+      let reported = [];
+      let breachedTickets = [];
+
+      if (user?.role === ROLES.USER) {
+        // For regular users
+        const assignedRes = responses[0];
+        const reportedRes = responses[1];
+        const breachedRes = responses[2];
+        
+        // Handle response structure: response.data = { data: [...], pagination: {...} }
+        assigned = Array.isArray(assignedRes.data?.data) ? assignedRes.data.data : (Array.isArray(assignedRes.data) ? assignedRes.data : []);
+        reported = Array.isArray(reportedRes.data?.data) ? reportedRes.data.data : (Array.isArray(reportedRes.data) ? reportedRes.data : []);
+        breachedTickets = Array.isArray(breachedRes.data?.data) ? breachedRes.data.data : (Array.isArray(breachedRes.data) ? breachedRes.data : []);
+        
+        console.log('User Dashboard Data:', {
+          assigned: assigned.length,
+          reported: reported.length,
+          breached: breachedTickets.length
+        });
+        
+        // Combine assigned and reported, removing duplicates
+        const allTicketsMap = new Map();
+        [...assigned, ...reported].forEach(ticket => {
+          if (ticket && ticket.id) {
+            allTicketsMap.set(ticket.id, ticket);
+          }
+        });
+        allTickets = Array.from(allTicketsMap.values());
+      } else {
+        // For admins/team leads
+        const allTicketsRes = responses[0];
+        const breachedRes = responses[1];
+        
+        // Handle response structure: response.data = { data: [...], pagination: {...} }
+        allTickets = Array.isArray(allTicketsRes.data?.data) ? allTicketsRes.data.data : (Array.isArray(allTicketsRes.data) ? allTicketsRes.data : []);
+        breachedTickets = Array.isArray(breachedRes.data?.data) ? breachedRes.data.data : (Array.isArray(breachedRes.data) ? breachedRes.data : []);
+        
+        console.log('Admin Dashboard Data:', {
+          allTickets: allTickets.length,
+          breached: breachedTickets.length
+        });
+        
+        // Filter assigned and reported for display
+        assigned = allTickets.filter((t) => t && t.assignee_id === user?.id);
+        reported = allTickets.filter((t) => t && t.reporter_id === user?.id);
+      }
 
       const statsData = {
-        assigned,
-        reported,
-        breached: breachedTickets,
-        all: allTickets
+        assigned: Array.isArray(assigned) ? assigned : [],
+        reported: Array.isArray(reported) ? reported : [],
+        breached: Array.isArray(breachedTickets) ? breachedTickets : [],
+        all: Array.isArray(allTickets) ? allTickets : []
       };
 
-      // Get recent tickets (last 5)
-      const recent = allTickets
-        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-        .slice(0, 5);
+      console.log('Dashboard Stats Data:', {
+        assigned: statsData.assigned.length,
+        reported: statsData.reported.length,
+        breached: statsData.breached.length,
+        all: statsData.all.length
+      });
+
+      // Get recent tickets (last 5) - sorted by created_at
+      const recent = Array.isArray(allTickets) 
+        ? allTickets
+            .filter(t => t && t.created_at)
+            .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+            .slice(0, 5)
+        : [];
+
+      console.log('Recent Tickets:', recent.length);
 
       setStats(statsData);
       setRecentTickets(recent);
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to load dashboard data');
+      console.error('Dashboard fetch error:', err);
+      const errorMsg = err.response?.data?.error || err.response?.data?.message || err.message || 'Failed to load dashboard data';
+      setError(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -303,14 +407,40 @@ const Dashboard = () => {
   }
 
   if (error) {
-    return <Alert severity="error">{error}</Alert>;
+    return (
+      <Box>
+        <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
+        <Button variant="contained" onClick={fetchDashboardData}>
+          Retry
+        </Button>
+      </Box>
+    );
   }
 
-  if (!stats) return null;
+  if (!stats) {
+    console.log('Dashboard: No stats available, stats =', stats);
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+        <Alert severity="info">No data available. Please try refreshing.</Alert>
+      </Box>
+    );
+  }
 
-  const allTickets = user.role === 'ADMIN' ? stats.all : [...stats.assigned, ...stats.reported];
+  console.log('Dashboard Render - Stats:', {
+    assigned: stats.assigned?.length || 0,
+    reported: stats.reported?.length || 0,
+    breached: stats.breached?.length || 0,
+    all: stats.all?.length || 0,
+    recentTickets: recentTickets?.length || 0
+  });
+
+  // Determine which tickets to show based on role
+  const allTickets = (user?.role === ROLES.SUPER_ADMIN || user?.role === ROLES.ORG_ADMIN || user?.role === ROLES.TEAM_LEAD) 
+    ? stats.all 
+    : [...stats.assigned, ...stats.reported];
+  
   const totalTickets = allTickets.length;
-  const highPriority = allTickets.filter((t) => t.priority === 'HIGH').length;
+  const highPriority = allTickets.filter((t) => t.priority === 'HIGH' || t.priority === 'URGENT').length;
   const inProgress = allTickets.filter((t) => t.status === 'IN_PROGRESS').length;
   const solved = allTickets.filter((t) => t.status === 'SOLVED' || t.status === 'CLOSED').length;
 
@@ -324,20 +454,15 @@ const Dashboard = () => {
               Dashboard
             </Typography>
             <Chip
-              label={user.role}
-              color={user.role === 'ADMIN' ? 'primary' : 'default'}
+              label={user?.role || 'Unknown'}
+              color={(user?.role === ROLES.SUPER_ADMIN || user?.role === ROLES.ORG_ADMIN) ? 'primary' : 'default'}
               size="small"
               sx={{ fontWeight: 'bold' }}
             />
           </Box>
           <Typography variant="body1" color="text.secondary">
-            Welcome back, {user.name}! 👋
+            Welcome back, {user?.name || 'User'}! 👋
           </Typography>
-          {USE_MOCK_DATA && (
-            <Box mt={1}>
-              <RoleSwitcher />
-            </Box>
-          )}
         </Box>
         <Button
           variant="contained"
@@ -350,10 +475,16 @@ const Dashboard = () => {
       </Box>
 
       {/* Role-based Info Card */}
-      {user.role === 'ADMIN' ? (
+      {(user?.role === ROLES.SUPER_ADMIN || user?.role === ROLES.ORG_ADMIN) ? (
         <Alert severity="info" sx={{ mb: 3, borderRadius: 2 }}>
           <Typography variant="body2" fontWeight="medium">
             👑 Admin Mode: You have full access to all features including user management, team management, and all projects.
+          </Typography>
+        </Alert>
+      ) : user?.role === ROLES.TEAM_LEAD ? (
+        <Alert severity="info" sx={{ mb: 3, borderRadius: 2 }}>
+          <Typography variant="body2" fontWeight="medium">
+            👥 Team Lead Mode: You can manage tickets in your team's projects and assign tickets to team members.
           </Typography>
         </Alert>
       ) : (
@@ -431,7 +562,7 @@ const Dashboard = () => {
       {/* Main Content Grid */}
       <Grid container spacing={3}>
         {/* Status Breakdown */}
-        {user.role === 'USER' ? (
+        {user?.role === ROLES.USER ? (
           <>
             <Grid item xs={12} md={6}>
               <StatusBreakdownCard
@@ -472,7 +603,7 @@ const Dashboard = () => {
         )}
 
         {/* Recent Tickets */}
-        <Grid item xs={12} md={user.role === 'ADMIN' ? 12 : 12}>
+        <Grid item xs={12} md={12}>
           <Card sx={{ boxShadow: 3 }}>
             <CardContent>
               <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
@@ -514,7 +645,7 @@ const Dashboard = () => {
                             boxShadow: 3
                           }
                         }}
-                        onClick={() => navigate(`/tickets/${encodeId(ticket.id)}`)}
+                        onClick={() => navigate(`/tickets/${ticket.id}`)}
                       >
                         <ListItemAvatar>
                           <Avatar
@@ -598,7 +729,7 @@ const Dashboard = () => {
         </Grid>
 
         {/* Quick Actions (Admin only) */}
-        {user.role === 'ADMIN' && (
+        {(user.role === ROLES.SUPER_ADMIN || user.role === ROLES.ORG_ADMIN) && (
           <Grid item xs={12}>
             <Card sx={{ boxShadow: 3, bgcolor: (theme) => theme.palette.mode === 'dark' ? 'rgba(25, 118, 210, 0.1)' : 'rgba(25, 118, 210, 0.05)' }}>
               <CardContent>

@@ -10,7 +10,6 @@ import {
 } from '@mui/material';
 import { formatDistanceToNow } from 'date-fns';
 import api from '../config/api';
-import { USE_MOCK_DATA } from '../data/mockData';
 import React from 'react';
 
 const TicketActivityLog = ({ ticketId }) => {
@@ -26,21 +25,9 @@ const TicketActivityLog = ({ ticketId }) => {
   const fetchActivities = async () => {
     try {
       setLoading(true);
-      if (USE_MOCK_DATA) {
-        // Mock activities
-        setActivities([
-          {
-            id: 1,
-            action_type: 'created',
-            user_name: 'Admin User',
-            description: 'Ticket created',
-            created_at: new Date().toISOString()
-          }
-        ]);
-      } else {
-        const response = await api.get(`/activities/tickets/${ticketId}`);
-        setActivities(response.data.data);
-      }
+      // Backend returns: { data: [...] }
+      const response = await api.get(`/activities/tickets/${ticketId}`);
+      setActivities(response.data?.data || []);
     } catch (error) {
       console.error('Failed to fetch activities:', error);
     } finally {

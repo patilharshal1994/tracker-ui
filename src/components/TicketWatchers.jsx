@@ -24,7 +24,6 @@ import {
   PersonAdd,
   Close
 } from '@mui/icons-material';
-import { mockApi, mockUsers, USE_MOCK_DATA } from '../data/mockData';
 import api from '../config/api';
 import React from 'react';
 
@@ -39,12 +38,9 @@ const TicketWatchers = ({ ticketId, watchers = [], onAddWatcher, onRemoveWatcher
 
   const fetchUsers = async () => {
     try {
-      if (USE_MOCK_DATA) {
-        setAvailableUsers(mockUsers);
-      } else {
-        const response = await api.get('/users');
-        setAvailableUsers(response.data.data);
-      }
+      // Backend returns: { data: [...], pagination: {...} }
+      const response = await api.get('/users');
+      setAvailableUsers(response.data?.data || []);
     } catch (error) {
       console.error('Failed to fetch users:', error);
     }

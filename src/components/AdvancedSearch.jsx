@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -17,7 +17,7 @@ import {
   Paper
 } from '@mui/material';
 import { Search, Save, Clear } from '@mui/icons-material';
-import { mockTags, mockProjects, mockUsers } from '../data/mockData';
+import api from '../config/api';
 import React from 'react';
 
 const AdvancedSearch = ({ open, onClose, onSearch, onSave, savedFilters = [] }) => {
@@ -37,6 +37,44 @@ const AdvancedSearch = ({ open, onClose, onSearch, onSave, savedFilters = [] }) 
 
   const [saveFilterName, setSaveFilterName] = useState('');
   const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [projects, setProjects] = useState([]);
+  const [users, setUsers] = useState([]);
+  const [tags, setTags] = useState([]);
+
+  useEffect(() => {
+    if (open) {
+      fetchProjects();
+      fetchUsers();
+      fetchTags();
+    }
+  }, [open]);
+
+  const fetchProjects = async () => {
+    try {
+      const response = await api.get('/projects');
+      setProjects(response.data?.data || []);
+    } catch (error) {
+      console.error('Failed to fetch projects:', error);
+    }
+  };
+
+  const fetchUsers = async () => {
+    try {
+      const response = await api.get('/users');
+      setUsers(response.data?.data || []);
+    } catch (error) {
+      console.error('Failed to fetch users:', error);
+    }
+  };
+
+  const fetchTags = async () => {
+    try {
+      const response = await api.get('/tags');
+      setTags(response.data?.data || []);
+    } catch (error) {
+      console.error('Failed to fetch tags:', error);
+    }
+  };
 
   const handleSearch = () => {
     onSearch(searchCriteria);
@@ -188,9 +226,9 @@ const AdvancedSearch = ({ open, onClose, onSearch, onSave, savedFilters = [] }) 
             {/* Projects Multi-select */}
             <Autocomplete
               multiple
-              options={mockProjects}
+              options={projects}
               getOptionLabel={(option) => option.name}
-              value={mockProjects.filter(p => searchCriteria.project_ids.includes(p.id))}
+              value={projects.filter(p => searchCriteria.project_ids.includes(p.id))}
               onChange={(event, newValue) => {
                 setSearchCriteria({
                   ...searchCriteria,
@@ -215,9 +253,9 @@ const AdvancedSearch = ({ open, onClose, onSearch, onSave, savedFilters = [] }) 
             {/* Assignees Multi-select */}
             <Autocomplete
               multiple
-              options={mockUsers}
+              options={users}
               getOptionLabel={(option) => option.name}
-              value={mockUsers.filter(u => searchCriteria.assignee_ids.includes(u.id))}
+              value={users.filter(u => searchCriteria.assignee_ids.includes(u.id))}
               onChange={(event, newValue) => {
                 setSearchCriteria({
                   ...searchCriteria,
@@ -242,9 +280,9 @@ const AdvancedSearch = ({ open, onClose, onSearch, onSave, savedFilters = [] }) 
             {/* Tags Multi-select */}
             <Autocomplete
               multiple
-              options={mockTags}
+              options={tags}
               getOptionLabel={(option) => option.name}
-              value={mockTags.filter(t => searchCriteria.tag_ids.includes(t.id))}
+              value={tags.filter(t => searchCriteria.tag_ids.includes(t.id))}
               onChange={(event, newValue) => {
                 setSearchCriteria({
                   ...searchCriteria,

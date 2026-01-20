@@ -28,8 +28,8 @@ import { ArrowBack, Edit, AttachFile, ContentCopy, Share } from '@mui/icons-mate
 import toast from 'react-hot-toast';
 import api from '../config/api';
 import { useAuth } from '../context/AuthContext';
-import { mockApi, USE_MOCK_DATA, mockUsers } from '../data/mockData';
 import { decodeId, encodeId } from '../utils/idEncoder';
+import { canAccess, ROLES } from '../utils/roleHierarchy';
 import MentionableRichTextEditor from '../components/MentionableRichTextEditor';
 import TicketActivityLog from '../components/TicketActivityLog';
 import FileAttachment from '../components/FileAttachment';
@@ -37,12 +37,54 @@ import TicketRelationships from '../components/TicketRelationships';
 import TimeTracker from '../components/TimeTracker';
 import TicketWatchers from '../components/TicketWatchers';
 import { TicketDetailSkeleton } from '../components/SkeletonLoader';
-import { mockTags } from '../data/mockData';
 import React from 'react';
 
 const TicketDetail = () => {
   const { id: encodedId } = useParams();
-  const ticketId = decodeId(encodedId);
+  // Try to decode ID if it's encoded, otherwise use as-is (for UUIDs)
+  const ticketId = (() => {
+    if (!encodedId) return null;
+    
+    // First, check if it's a valid UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (uuidRegex.test(encodedId)) {
+      return encodedId; // It's a valid UUID
+    }
+    
+    // If it contains hyphens but isn't a valid UUID, try removing hyphens and decoding as base64
+    if (encodedId.includes('-')) {
+      try {
+        // Try decoding without hyphens
+        const withoutHyphens = encodedId.replace(/-/g, '');
+        const decoded = atob(withoutHyphens);
+        // Check if decoded string looks like a UUID
+        if (decoded.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+          return decoded;
+        }
+      } catch (e) {
+        // Not base64, continue
+      }
+    }
+    
+    // Try to decode it as base64 (might be base64 encoded UUID)
+    try {
+      const decoded = atob(encodedId);
+      // Check if decoded string looks like a UUID
+      if (decoded.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+        return decoded;
+      }
+      // If not a UUID, try the old integer decode method
+      const id = parseInt(decoded, 10);
+      if (!isNaN(id)) {
+        return String(id);
+      }
+    } catch (e) {
+      // Not base64, use as-is
+    }
+    
+    // Use as-is (might be a UUID or other format - backend will validate)
+    return encodedId;
+  })();
   const navigate = useNavigate();
   const { user } = useAuth();
   const [ticket, setTicket] = useState(null);
@@ -57,12 +99,14 @@ const TicketDetail = () => {
   const [timeLogs, setTimeLogs] = useState([]);
   const [watchers, setWatchers] = useState([]);
   const [users, setUsers] = useState([]);
+  const [tags, setTags] = useState([]); // Add tags state
   const [commentMentions, setCommentMentions] = useState([]);
 
   useEffect(() => {
     if (ticketId) {
       fetchTicket();
       fetchUsers();
+      fetchTags();
     } else {
       setError('Invalid ticket ID');
       setLoading(false);
@@ -71,15 +115,21 @@ const TicketDetail = () => {
 
   const fetchUsers = async () => {
     try {
-      if (USE_MOCK_DATA) {
-        setUsers(mockUsers);
-      } else {
-        // Backend returns: { data: [...], pagination: {...} }
-        const response = await api.get('/users');
-        setUsers(response.data?.data || []);
-      }
+      // Backend returns: { data: [...], pagination: {...} }
+      const response = await api.get('/users');
+      setUsers(response.data?.data || []);
     } catch (err) {
       console.error('Failed to load users:', err);
+    }
+  };
+
+  const fetchTags = async () => {
+    try {
+      // Backend returns: { data: [...], pagination: {...} }
+      const response = await api.get('/tags');
+      setTags(response.data?.data || []);
+    } catch (err) {
+      console.error('Failed to load tags:', err);
     }
   };
 
@@ -87,35 +137,20 @@ const TicketDetail = () => {
     try {
       setLoading(true);
       
-      if (USE_MOCK_DATA) {
-        const response = await mockApi.getTicket(ticketId);
-        setTicket(response.data);
-        setAttachments(response.data.attachments || []);
-        setRelationships(response.data.relationships || []);
-        setTimeLogs(response.data.time_logs || []);
-        setWatchers(response.data.watchers || []);
-        setEditData({
-          status: response.data.status,
-          priority: response.data.priority,
-          assignee_id: response.data.assignee_id || '',
-          module: response.data.module || ''
-        });
-      } else {
-        // Backend returns: { data: {...} }
-        const response = await api.get(`/tickets/${ticketId}`);
-        const ticketData = response.data?.data || response.data;
-        setTicket(ticketData);
-        setAttachments(ticketData.attachments || []);
-        setRelationships(ticketData.relationships || []);
-        setTimeLogs(ticketData.time_logs || []);
-        setWatchers(ticketData.watchers || []);
-        setEditData({
-          status: ticketData.status,
-          priority: ticketData.priority,
-          assignee_id: ticketData.assignee_id || '',
-          module: ticketData.module || ''
-        });
-      }
+      // Backend returns: { data: {...} }
+      const response = await api.get(`/tickets/${ticketId}`);
+      const ticketData = response.data?.data || response.data;
+      setTicket(ticketData);
+      setAttachments(ticketData.attachments || []);
+      setRelationships(ticketData.relationships || []);
+      setTimeLogs(ticketData.timeLogs || ticketData.time_logs || []);
+      setWatchers(ticketData.watchers || []);
+      setEditData({
+        status: ticketData.status,
+        priority: ticketData.priority,
+        assignee_id: ticketData.assignee_id || '',
+        module: ticketData.module || ''
+      });
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to load ticket');
     } finally {
@@ -157,6 +192,12 @@ const TicketDetail = () => {
 
   const handleUpdate = async () => {
     try {
+      // Assignee is required for users who can assign tickets
+      if (canAccess(user, 'assign_tickets') && !editData.assignee_id) {
+        toast.error('Please select an assignee');
+        return;
+      }
+      
       // Backend returns: { data: {...}, message: '...' }
       const response = await api.put(`/tickets/${ticketId}`, {
         ...editData,
@@ -244,7 +285,7 @@ const TicketDetail = () => {
                 <Tooltip title="Copy ticket link">
                   <IconButton
                     onClick={() => {
-                      const ticketUrl = `${window.location.origin}/tickets/${encodeId(ticket.id)}`;
+                      const ticketUrl = `${window.location.origin}/tickets/${ticket.id}`;
                       navigator.clipboard.writeText(ticketUrl).then(() => {
                         toast.success('Ticket link copied to clipboard! 🔗', {
                           duration: 3000,
@@ -305,7 +346,7 @@ const TicketDetail = () => {
               {ticket.tags && ticket.tags.length > 0 && (
                 <>
                   {ticket.tags.map(tagId => {
-                    const tag = mockTags.find(t => t.id === tagId);
+                    const tag = tags.find(t => t.id === tagId);
                     return tag ? (
                       <Chip
                         key={tag.id}
@@ -684,10 +725,44 @@ const TicketDetail = () => {
               <MenuItem value="OTHER">Other</MenuItem>
             </Select>
           </FormControl>
+          {canAccess(user, 'assign_tickets') && (
+            <FormControl fullWidth margin="normal" required>
+              <InputLabel>Assignee</InputLabel>
+              <Select
+                value={editData.assignee_id || ''}
+                label="Assignee"
+                onChange={(e) => setEditData({ ...editData, assignee_id: e.target.value || null })}
+                required
+              >
+                <MenuItem value="">Select Assignee</MenuItem>
+                {users
+                  .filter(u => {
+                    // Filter users based on role permissions
+                    if (user.role === ROLES.SUPER_ADMIN) {
+                      return true; // Super Admin can assign to anyone
+                    } else if (user.role === ROLES.ORG_ADMIN) {
+                      return u.organization_id === user.organization_id; // Org Admin can assign to users in their org
+                    } else if (user.role === ROLES.TEAM_LEAD) {
+                      return u.team_id === user.team_id; // Team Lead can assign to users in their team
+                    }
+                    return false;
+                  })
+                  .map((u) => (
+                    <MenuItem key={u.id} value={u.id}>
+                      {u.name} {u.email ? `(${u.email})` : ''}
+                    </MenuItem>
+                  ))}
+              </Select>
+            </FormControl>
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpenEditDialog(false)}>Cancel</Button>
-          <Button onClick={handleUpdate} variant="contained">
+          <Button 
+            onClick={handleUpdate} 
+            variant="contained"
+            disabled={canAccess(user, 'assign_tickets') && !editData.assignee_id}
+          >
             Update
           </Button>
         </DialogActions>

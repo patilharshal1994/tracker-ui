@@ -95,8 +95,8 @@ const Profile = () => {
         setProfileData(mockProfile);
       } else {
         // Backend returns: { data: {...} }
-        // Use /users/:id/profile endpoint to get user profile
-        const response = await api.get(`/users/${user.id}/profile`);
+        // Use /users/me endpoint to get current user profile
+        const response = await api.get('/users/me');
         const userData = response.data?.data || response.data;
         setProfileData({
           name: userData.name || '',

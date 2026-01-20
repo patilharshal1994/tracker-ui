@@ -35,7 +35,6 @@ import toast from 'react-hot-toast';
 import { Chip, IconButton, Tooltip } from '@mui/material';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { mockUser, USE_MOCK_DATA } from '../data/mockData';
 import { getMenuItems, getRoleDisplayName, getRoleColor, ROLES } from '../utils/roleHierarchy';
 import NotificationCenter from './NotificationCenter';
 import logo from '../assets/logo.png';
@@ -47,7 +46,7 @@ const Layout = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const auth = useAuth();
-  const user = USE_MOCK_DATA ? mockUser : (auth?.user || null);
+  const user = auth?.user || null;
   const logout = auth?.logout || (() => {});
   const [mobileOpen, setMobileOpen] = useState(false);
   const [anchorEl, setAnchorEl] = useState(null);

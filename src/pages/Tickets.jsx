@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -35,8 +35,8 @@ import { Add, Visibility, FilterList, Search, Clear, ExpandMore, ExpandLess, Des
 import toast from 'react-hot-toast';
 import api from '../config/api';
 import { useAuth } from '../context/AuthContext';
-import { mockApi, mockProjects, mockUsers, mockTags, USE_MOCK_DATA } from '../data/mockData';
 import { encodeId } from '../utils/idEncoder';
+import { canAccess, ROLES } from '../utils/roleHierarchy';
 import MentionableRichTextEditor from '../components/MentionableRichTextEditor';
 import TagSelector from '../components/TagSelector';
 import BulkActions from '../components/BulkActions';
@@ -61,7 +61,7 @@ const Tickets = () => {
     project_id: '',
     assignee_id: '',
     reporter_id: '',
-    assigned_to_me: user.role === 'USER' ? 'true' : '',
+    assigned_to_me: user?.role === 'USER' ? 'true' : '',
     reported_by_me: '',
     is_breached: '',
     search: ''
@@ -81,6 +81,7 @@ const Tickets = () => {
     mentioned_users: []
   });
   const [users, setUsers] = useState([]);
+  const [tags, setTags] = useState([]); // Add tags state
   const [selectedTickets, setSelectedTickets] = useState([]);
   const [selectAll, setSelectAll] = useState(false);
   const [advancedSearchOpen, setAdvancedSearchOpen] = useState(false);
@@ -89,12 +90,26 @@ const Tickets = () => {
   const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [viewMode, setViewMode] = useState('list'); // 'list' or 'grid'
+  const [pagination, setPagination] = useState(null); // Store pagination metadata from backend
+
+  // Track previous filters to detect filter changes
+  const prevFiltersRef = useRef(filters);
+  
+  useEffect(() => {
+    // Check if filters changed (not page/rowsPerPage)
+    const filtersChanged = JSON.stringify(prevFiltersRef.current) !== JSON.stringify(filters);
+    if (filtersChanged) {
+      setPage(1); // Reset to page 1 when filters change
+      prevFiltersRef.current = filters;
+    }
+    fetchTickets();
+  }, [filters, page, rowsPerPage]);
 
   useEffect(() => {
-    fetchTickets();
     fetchProjects();
     fetchUsers(); // Fetch users for mentions (all users need this)
-  }, [filters]);
+    fetchTags(); // Fetch tags for display
+  }, []);
 
   // Reset selectAll when page changes
   useEffect(() => {
@@ -104,6 +119,7 @@ const Tickets = () => {
   const fetchTickets = async () => {
     try {
       setLoading(true);
+      setError(''); // Clear previous errors
       // Filter out empty values and search (which we'll handle separately)
       const params = Object.fromEntries(
         Object.entries(filters).filter(([key, v]) => v !== '' && key !== 'search')
@@ -112,40 +128,96 @@ const Tickets = () => {
       let ticketsData = [];
       let paginationData = null;
       
-      if (USE_MOCK_DATA) {
-        const response = await mockApi.getTickets(params);
-        ticketsData = response.data;
-      } else {
-        // Backend returns: { data: [...], pagination: {...} }
-        const response = await api.get('/tickets', { params: { ...params, page, limit: rowsPerPage } });
-        ticketsData = response.data?.data || [];
-        paginationData = response.data?.pagination || null;
-      }
-
-      // Apply search filter if present
+      // Backend returns: { data: [...], pagination: {...} }
+      // Include search in params if present
+      const requestParams = { ...params, page, limit: rowsPerPage };
       if (filters.search) {
-        const searchTerm = filters.search.toLowerCase();
-        ticketsData = ticketsData.filter(ticket =>
-          ticket.title.toLowerCase().includes(searchTerm) ||
-          ticket.description?.toLowerCase().includes(searchTerm) ||
-          ticket.project_name?.toLowerCase().includes(searchTerm)
-        );
+        requestParams.search = filters.search;
+      }
+      
+      const response = await api.get('/tickets', { params: requestParams });
+      console.log('Tickets API Full Response:', response); // Debug log
+      console.log('Tickets API Response.data:', response.data); // Debug log
+      
+      // Backend response structure: response.data = { data: [...], pagination: {...} }
+      // Extract data array and pagination object correctly
+      if (response.data) {
+        // Check if response.data has nested 'data' property (correct structure)
+        if (response.data.data !== undefined && Array.isArray(response.data.data)) {
+          ticketsData = response.data.data;
+          paginationData = response.data.pagination || null;
+        }
+        // Check if response.data is directly an array (fallback - shouldn't happen)
+        else if (Array.isArray(response.data)) {
+          ticketsData = response.data;
+          paginationData = null;
+        }
+        // If response.data is an object but doesn't have 'data' property
+        else {
+          console.warn('Unexpected response structure - response.data is not array and has no data property:', response.data);
+          ticketsData = [];
+          paginationData = null;
+        }
+      } else {
+        ticketsData = [];
+        paginationData = null;
+      }
+      
+      // Ensure ticketsData is an array
+      if (!Array.isArray(ticketsData)) {
+        console.warn('Tickets data is not an array:', ticketsData);
+        ticketsData = [];
       }
 
+      console.log('Extracted tickets:', ticketsData.length, 'tickets'); // Debug log
+      console.log('Extracted pagination:', paginationData); // Debug log
+      console.log('Pagination fields:', paginationData ? {
+        page: paginationData.page,
+        limit: paginationData.limit,
+        total: paginationData.total,
+        totalPages: paginationData.total_pages,
+        hasNext: paginationData.hasNext,
+        hasPrev: paginationData.hasPrev
+      } : 'No pagination data'); // Debug log
+      
       setTickets(ticketsData);
-      setPage(1); // Reset to first page when filters change
+      setPagination(paginationData); // Store pagination metadata
+      // Don't reset page when filters change - let pagination work
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to load tickets');
+      console.error('Error fetching tickets:', err);
+      const errorMsg = err.response?.data?.error || err.message || 'Failed to load tickets';
+      setError(errorMsg);
+      setTickets([]); // Clear tickets on error
+      toast.error(errorMsg);
     } finally {
       setLoading(false);
     }
   };
 
-  // Pagination calculations
-  const totalPages = Math.ceil(tickets.length / rowsPerPage);
-  const startIndex = (page - 1) * rowsPerPage;
-  const endIndex = startIndex + rowsPerPage;
-  const paginatedTickets = tickets.slice(startIndex, endIndex);
+  // Pagination calculations - use backend pagination if available, otherwise calculate from tickets
+  // Backend pagination structure: { page, limit, total, total_pages }
+  const totalPages = pagination?.total_pages || (pagination?.total ? Math.ceil(pagination.total / (pagination.limit || rowsPerPage)) : Math.ceil(tickets.length / rowsPerPage));
+  const totalTickets = pagination?.total || tickets.length;
+  const currentPage = pagination?.page || page;
+  const currentLimit = pagination?.limit || rowsPerPage;
+  const startIndex = pagination ? (pagination.page - 1) * pagination.limit : (page - 1) * rowsPerPage;
+  const endIndex = pagination 
+    ? Math.min(startIndex + tickets.length, pagination.total) 
+    : Math.min(startIndex + rowsPerPage, tickets.length);
+  
+  // Backend already paginates, so use tickets directly (no client-side slicing)
+  const paginatedTickets = tickets;
+  
+  console.log('Pagination State:', { 
+    totalPages, 
+    totalTickets, 
+    currentPage, 
+    currentLimit,
+    startIndex, 
+    endIndex, 
+    ticketsCount: tickets.length,
+    pagination 
+  }); // Debug log
 
   const handlePageChange = (event, newPage) => {
     setPage(newPage);
@@ -159,14 +231,9 @@ const Tickets = () => {
 
   const fetchProjects = async () => {
     try {
-      if (USE_MOCK_DATA) {
-        const response = await mockApi.getProjects();
-        setProjects(response.data);
-      } else {
-        // Backend returns: { data: [...], pagination: {...} }
-        const response = await api.get('/projects');
-        setProjects(response.data?.data || []);
-      }
+      // Backend returns: { data: [...], pagination: {...} }
+      const response = await api.get('/projects');
+      setProjects(response.data?.data || []);
     } catch (err) {
       console.error('Failed to load projects:', err);
     }
@@ -174,16 +241,21 @@ const Tickets = () => {
 
   const fetchUsers = async () => {
     try {
-      if (USE_MOCK_DATA) {
-        const response = await mockApi.getUsers();
-        setUsers(response.data);
-      } else {
-        // Backend returns: { data: [...], pagination: {...} }
-        const response = await api.get('/users');
-        setUsers(response.data?.data || []);
-      }
+      // Backend returns: { data: [...], pagination: {...} }
+      const response = await api.get('/users');
+      setUsers(response.data?.data || []);
     } catch (err) {
       console.error('Failed to load users:', err);
+    }
+  };
+
+  const fetchTags = async () => {
+    try {
+      // Backend returns: { data: [...], pagination: {...} }
+      const response = await api.get('/tags');
+      setTags(response.data?.data || []);
+    } catch (err) {
+      console.error('Failed to load tags:', err);
     }
   };
 
@@ -783,7 +855,7 @@ const Tickets = () => {
                           variant="body2" 
                           fontWeight="medium"
                           sx={{ cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
-                          onClick={() => navigate(`/tickets/${encodeId(ticket.id)}`)}
+                          onClick={() => navigate(`/tickets/${ticket.id}`)}
                         >
                           {ticket.title}
                         </Typography>
@@ -801,7 +873,7 @@ const Tickets = () => {
                       <Box display="flex" gap={0.5} flexWrap="wrap">
                         {ticket.tags && ticket.tags.length > 0 ? (
                           ticket.tags.slice(0, 2).map(tagId => {
-                            const tag = mockTags.find(t => t.id === tagId);
+                            const tag = tags.find(t => t.id === tagId);
                             return tag ? (
                               <Chip
                                 key={tag.id}
@@ -877,7 +949,7 @@ const Tickets = () => {
                         <Tooltip title="View ticket">
                           <IconButton
                             size="small"
-                            onClick={() => navigate(`/tickets/${encodeId(ticket.id)}`)}
+                            onClick={() => navigate(`/tickets/${ticket.id}`)}
                             sx={{ color: 'primary.main' }}
                           >
                             <Visibility />
@@ -888,7 +960,7 @@ const Tickets = () => {
                             size="small"
                             onClick={(e) => {
                               e.stopPropagation();
-                              const ticketUrl = `${window.location.origin}/tickets/${encodeId(ticket.id)}`;
+                              const ticketUrl = `${window.location.origin}/tickets/${ticket.id}`;
                               navigator.clipboard.writeText(ticketUrl).then(() => {
                                 toast.success('Ticket link copied to clipboard! 🔗', {
                                   duration: 3000,
@@ -941,7 +1013,7 @@ const Tickets = () => {
                     </Box>
                     <Pagination
                       count={totalPages}
-                      page={page}
+                      page={currentPage}
                       onChange={handlePageChange}
                       color="primary"
                       showFirstButton
@@ -1050,7 +1122,7 @@ const Tickets = () => {
                           }}
                           onClick={(e) => {
                             e.stopPropagation();
-                            navigate(`/tickets/${encodeId(ticket.id)}`);
+                            navigate(`/tickets/${ticket.id}`);
                           }}
                         >
                           {ticket.title}
@@ -1060,7 +1132,7 @@ const Tickets = () => {
                         {ticket.tags && ticket.tags.length > 0 && (
                           <Box display="flex" gap={0.5} flexWrap="wrap" mb={1.5}>
                             {ticket.tags.slice(0, 3).map(tagId => {
-                              const tag = mockTags.find(t => t.id === tagId);
+                              const tag = tags.find(t => t.id === tagId);
                               return tag ? (
                                 <Chip
                                   key={tag.id}
@@ -1172,7 +1244,7 @@ const Tickets = () => {
                                 size="small"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  navigate(`/tickets/${encodeId(ticket.id)}`);
+                                  navigate(`/tickets/${ticket.id}`);
                                 }}
                                 sx={{ color: 'primary.main' }}
                               >
@@ -1184,7 +1256,7 @@ const Tickets = () => {
                                 size="small"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  const ticketUrl = `${window.location.origin}/tickets/${encodeId(ticket.id)}`;
+                                  const ticketUrl = `${window.location.origin}/tickets/${ticket.id}`;
                                   navigator.clipboard.writeText(ticketUrl).then(() => {
                                     toast.success('Ticket link copied to clipboard! 🔗', {
                                       duration: 3000,
@@ -1217,7 +1289,7 @@ const Tickets = () => {
                 <Box display="flex" justifyContent="space-between" alignItems="center" sx={{ mt: 3, py: 2 }}>
                   <Box display="flex" alignItems="center" gap={2}>
                     <Typography variant="body2" color="text.secondary">
-                      Showing {startIndex + 1} to {Math.min(endIndex, tickets.length)} of {tickets.length} tickets
+                      Showing {startIndex + 1} to {endIndex} of {totalTickets} tickets
                     </Typography>
                     <FormControl size="small" sx={{ minWidth: 120 }}>
                       <InputLabel>Rows per page</InputLabel>
@@ -1235,7 +1307,7 @@ const Tickets = () => {
                   </Box>
                   <Pagination
                     count={totalPages}
-                    page={page}
+                    page={currentPage}
                     onChange={handlePageChange}
                     color="primary"
                     showFirstButton
@@ -1371,20 +1443,33 @@ const Tickets = () => {
               <MenuItem value="OTHER">Other</MenuItem>
             </Select>
           </FormControl>
-          {user.role === 'ADMIN' && (
-            <FormControl fullWidth margin="normal">
+          {canAccess(user, 'assign_tickets') && (
+            <FormControl fullWidth margin="normal" required>
               <InputLabel>Assignee</InputLabel>
               <Select
-                value={formData.assignee_id}
+                value={formData.assignee_id || ''}
                 label="Assignee"
-                onChange={(e) => setFormData({ ...formData, assignee_id: e.target.value })}
+                onChange={(e) => setFormData({ ...formData, assignee_id: e.target.value || null })}
+                required
               >
-                <MenuItem value="">Unassigned</MenuItem>
-                {users.map((u) => (
-                  <MenuItem key={u.id} value={u.id}>
-                    {u.name}
-                  </MenuItem>
-                ))}
+                <MenuItem value="">Select Assignee</MenuItem>
+                {users
+                  .filter(u => {
+                    // Filter users based on role permissions
+                    if (user.role === ROLES.SUPER_ADMIN) {
+                      return true; // Super Admin can assign to anyone
+                    } else if (user.role === ROLES.ORG_ADMIN) {
+                      return u.organization_id === user.organization_id; // Org Admin can assign to users in their org
+                    } else if (user.role === ROLES.TEAM_LEAD) {
+                      return u.team_id === user.team_id; // Team Lead can assign to users in their team
+                    }
+                    return false;
+                  })
+                  .map((u) => (
+                    <MenuItem key={u.id} value={u.id}>
+                      {u.name} {u.email ? `(${u.email})` : ''}
+                    </MenuItem>
+                  ))}
               </Select>
             </FormControl>
           )}
@@ -1394,7 +1479,7 @@ const Tickets = () => {
           <Button
             onClick={handleCreate}
             variant="contained"
-            disabled={!formData.project_id || !formData.title}
+            disabled={!formData.project_id || !formData.title || (canAccess(user, 'assign_tickets') && !formData.assignee_id)}
           >
             Create
           </Button>

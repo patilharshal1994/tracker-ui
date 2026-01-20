@@ -93,8 +93,8 @@ const NotificationCenter = () => {
     if (!notification.is_read) {
       handleMarkAsRead(notification.id);
     }
-    if (notification.related_ticket_id) {
-      navigate(`/tickets/${encodeId(notification.related_ticket_id)}`);
+    if (notification.related_entity_id) {
+      navigate(`/tickets/${notification.related_entity_id}`);
       handleClose();
     }
   };

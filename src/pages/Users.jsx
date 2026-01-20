@@ -254,8 +254,9 @@ const Users = () => {
         ));
         toast.success(`Password reset successfully for "${resettingUser.name}"! 🔐`);
       } else {
-        await api.put(`/users/${resettingUser.id}/reset-password`, {
-          password: resetPasswordData.newPassword
+        // Backend expects POST with newPassword field
+        await api.post(`/users/${resettingUser.id}/reset-password`, {
+          newPassword: resetPasswordData.newPassword
         });
         toast.success(`Password reset successfully for "${resettingUser.name}"! 🔐`);
       }

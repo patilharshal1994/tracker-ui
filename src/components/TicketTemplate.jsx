@@ -27,7 +27,6 @@ import {
   ContentCopy,
   Description
 } from '@mui/icons-material';
-import { mockApi, USE_MOCK_DATA } from '../data/mockData';
 import api from '../config/api';
 import toast from 'react-hot-toast';
 import React from 'react';
@@ -82,16 +81,12 @@ const TicketTemplate = ({ open, onClose, onSelect, projects = [] }) => {
 
   const fetchTemplates = async () => {
     try {
-      if (USE_MOCK_DATA) {
-        setTemplates(mockTemplates);
-      } else {
-        // Backend returns: { data: [...], pagination: {...} }
-        const response = await api.get('/ticket-templates');
-        setTemplates(response.data?.data || []);
-      }
+      // Backend returns: { data: [...], pagination: {...} }
+      const response = await api.get('/ticket-templates');
+      setTemplates(response.data?.data || []);
     } catch (error) {
       console.error('Failed to fetch templates:', error);
-      setTemplates(mockTemplates);
+      setTemplates([]);
     }
   };
 

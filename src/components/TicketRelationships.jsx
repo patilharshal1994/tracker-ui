@@ -27,7 +27,7 @@ import {
   ContentCopy,
   CallSplit
 } from '@mui/icons-material';
-import { mockApi, USE_MOCK_DATA } from '../data/mockData';
+import api from '../config/api';
 import { encodeId } from '../utils/idEncoder';
 import { useNavigate } from 'react-router-dom';
 import React from 'react';
@@ -45,16 +45,12 @@ const TicketRelationships = ({ ticketId, relationships = [], onAdd, onRemove }) 
 
   const fetchAvailableTickets = async () => {
     try {
-      if (USE_MOCK_DATA) {
-        const response = await mockApi.getTickets();
-        // Filter out current ticket
-        const tickets = response.data.filter(t => t.id !== parseInt(ticketId));
-        setAvailableTickets(tickets);
-      } else {
-        const response = await api.get('/tickets');
-        const tickets = response.data.filter(t => t.id !== parseInt(ticketId));
-        setAvailableTickets(tickets);
-      }
+      // Backend returns: { data: [...], pagination: {...} } or array directly
+      const response = await api.get('/tickets');
+      const ticketsData = response.data?.data || response.data || [];
+      // Filter out current ticket (handle both UUID and integer IDs)
+      const tickets = ticketsData.filter(t => t.id !== ticketId && t.id !== parseInt(ticketId));
+      setAvailableTickets(tickets);
     } catch (error) {
       console.error('Failed to fetch tickets:', error);
     }
@@ -176,7 +172,7 @@ const TicketRelationships = ({ ticketId, relationships = [], onAdd, onRemove }) 
                         variant="body2"
                         fontWeight="medium"
                         sx={{ cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
-                        onClick={() => navigate(`/tickets/${encodeId(relatedTicket.id)}`)}
+                        onClick={() => navigate(`/tickets/${relatedTicket.id}`)}
                       >
                         #{relatedTicket.id}: {relatedTicket.title}
                       </Typography>

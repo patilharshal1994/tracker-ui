@@ -8,7 +8,6 @@ import {
   Typography
 } from '@mui/material';
 import { Add } from '@mui/icons-material';
-import { mockApi, mockTags, USE_MOCK_DATA } from '../data/mockData';
 import api from '../config/api';
 import React from 'react';
 
@@ -23,14 +22,9 @@ const TagSelector = ({ value = [], onChange, disabled = false, label = 'Tags' })
   const fetchTags = async () => {
     try {
       setLoading(true);
-      if (USE_MOCK_DATA) {
-        const response = await mockApi.getTags();
-        setTags(response.data);
-      } else {
-        // Backend returns: { data: [...], pagination: {...} }
-        const response = await api.get('/tags');
-        setTags(response.data?.data || []);
-      }
+      // Backend returns: { data: [...], pagination: {...} }
+      const response = await api.get('/tags');
+      setTags(response.data?.data || []);
     } catch (error) {
       console.error('Failed to fetch tags:', error);
     } finally {

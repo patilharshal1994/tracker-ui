@@ -304,7 +304,7 @@ const Projects = () => {
                   <TableCell>
                     <IconButton
                       size="small"
-                      onClick={() => navigate(`/projects/${encodeId(project.id)}`)}
+                      onClick={() => navigate(`/projects/${project.id}`)}
                       sx={{ color: 'primary.main' }}
                     >
                       <Visibility />

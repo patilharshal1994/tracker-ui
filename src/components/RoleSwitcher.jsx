@@ -10,7 +10,6 @@ import {
 } from '@mui/material';
 import { AdminPanelSettings, Person, Business, Group } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
-import { mockUsers, mockOrganizations, USE_MOCK_DATA } from '../data/mockData';
 import { getRoleDisplayName, getRoleColor, ROLES } from '../utils/roleHierarchy';
 import React from 'react';
 
@@ -18,7 +17,8 @@ const RoleSwitcher = () => {
   const { user, updateUser } = useAuth();
   const [anchorEl, setAnchorEl] = useState(null);
 
-  if (!USE_MOCK_DATA) return null;
+  // RoleSwitcher is only for demo/mock mode - disabled in production
+  return null;
 
   const handleClick = (event) => {
     setAnchorEl(event.currentTarget);
